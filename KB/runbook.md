@@ -104,11 +104,26 @@ renders without them.
 Binary files cannot be handed over through a chat transcript. **Commit them into `public/`
 yourself and say what you added** — that is the whole handover.
 
-| Asset | Format & size | Commit to | Status |
+| Asset | Format & size | Committed at | Status |
 |---|---|---|---|
-| Resume PDF | PDF, ideally < 2 MB | `public/resume.pdf` | **Outstanding.** CV *content* received and seeded; the file itself is still needed for the download link |
-| Profile photo | **Square**, ≥ 800×800, JPG/PNG | `public/avatar.jpg` | **Outstanding.** A landscape photograph was supplied — usable as a hero or OG background, but not as an avatar (see below) |
+| Resume PDF | PDF, ideally < 2 MB | `public/resume.pdf` | **Done** — 56 KB, 1 page |
+| Profile photo | Square, ≥ 800×800 | `public/avatar.jpg` | **Done** — 800×800, 124 KB, cropped from the supplied landscape source. Placeholder imagery; swap for a real headshot when there is one |
 | Favicon source | 512×512 PNG or an SVG | `public/` | Outstanding, needed by Phase 5 |
+
+**How the avatar was produced**, in case it needs redoing: the source was a 2816×1536 landscape
+photograph. A full-height 1536×1536 square was cropped with its left edge at x=1105 so the
+hiker sits near the centre rather than at an edge — an off-centre subject gets clipped by the
+circular mask the hero applies. That was then downscaled to 800×800 and saved as JPEG at
+quality 82.
+
+```bash
+sips -c 1536 1536 --cropOffset 0 1105 source.png --out crop.png
+sips -Z 800 crop.png --out public/avatar.jpg -s format jpeg -s formatOptions 82
+```
+
+The 6.7 MB PNG source was **not** committed. Anything in `public/` is publicly downloadable,
+and a file that size would sit in git history permanently; the 124 KB derived image is what the
+site actually needs. Keep the original somewhere outside the repo if you want it.
 
 Once a file is committed, its value in the database is the site-relative path — `/resume.pdf`,
 `/avatar.jpg`. Migration 0002 and `assetUrl` in `src/lib/schemas.ts` both accept that form

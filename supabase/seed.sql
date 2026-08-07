@@ -47,11 +47,10 @@ select
   'https://github.com/mudgalprashant',
   -- TODO(owner): the CV links "LinkedIn" but the URL was not in the text I received.
   'https://www.linkedin.com/in/REPLACE-ME',
-  -- TODO(owner): add the PDF at public/resume.pdf, then this path resolves.
   '/resume.pdf',
-  -- TODO(owner): a square headshot works best here. The image supplied was a
-  -- landscape photograph — see KB/runbook.md §2.
-  null
+  -- Cropped to 800x800 from the supplied landscape photograph. Placeholder
+  -- imagery — swap for a real headshot when there is one.
+  '/avatar.jpg'
 where not exists (select 1 from public.profile);
 
 

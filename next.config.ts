@@ -91,6 +91,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  images: {
+    // avatar_url accepts either a site-relative path (a file in public/) or an
+    // absolute URL, so next/image has to permit Supabase Storage as well — it is
+    // where uploads will land once the admin panel exists. Kept to that single
+    // host rather than a wildcard: an open image host lets anyone route traffic
+    // through this site's optimizer. Matches CSP img-src in the same file.
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
+  },
   async headers() {
     return [
       {

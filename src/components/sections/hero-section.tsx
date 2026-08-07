@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { site } from "@/lib/site";
 import type { PublicProfile } from "@/lib/content";
 
@@ -11,6 +12,21 @@ export function HeroSection({ profile }: { profile: PublicProfile | null }) {
 
   return (
     <section className="py-20">
+      {profile?.avatar_url ? (
+        <Image
+          src={profile.avatar_url}
+          // Empty alt on purpose: the name it illustrates is in the <h1>
+          // immediately below, so describing it again only makes a screen
+          // reader repeat itself.
+          alt=""
+          width={80}
+          height={80}
+          // Above the fold, so load it eagerly rather than letting it pop in.
+          priority
+          className="mb-6 size-20 rounded-full border border-border object-cover"
+        />
+      ) : null}
+
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Portfolio</p>
 
       <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
