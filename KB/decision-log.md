@@ -473,3 +473,86 @@ built, and this entry.
 **Open items**: user must create the Supabase project, apply the migration and seed, replace
 the placeholder allow-list email, and run the RLS ritual. Plus the still-outstanding repo
 settings from the previous entry (secret scanning, CodeQL) and the Vercel connection.
+
+---
+
+## 2026-08-08 — Site chrome: header, footer, theme system, section shells (`feat/site-chrome`)
+
+**Context**: PR #8 merged. Third implementation branch, completing Phase 1's remaining layout
+bullet ("base layout, theme system, font loading, empty section shells" — fonts landed with
+the scaffold).
+
+**Scope decision**: theme system and layout shell were built as one branch rather than two.
+They are naturally coupled — the toggle needs somewhere to live, and the nav needs section
+anchors to point at. Splitting them would have meant building a temporary home for the toggle
+and then moving it, i.e. churn in place of a cleaner review.
+
+**Two findings worth recording, both discovered by testing rather than reasoning:**
+
+1. **`next/script` with `strategy="beforeInteractive"` does not work for a no-flash theme
+   script in the App Router.** It was the first implementation and it looked correct. Serving
+   the production build and reading the HTML showed what it actually emits: a
+   `<link rel="preload">` hint in `<head>`, plus a
+   `(self.__next_s=self.__next_s||[]).push([...])` queue entry that Next drains during
+   hydration. That is far too late — the page has already painted. The flash would only have
+   affected users whose stored preference differs from their OS setting, which is exactly the
+   population the script exists for, so it would have been easy to miss in casual testing.
+   **Fix**: a plain, un-decorated `<script src>` as the first element in `<body>`. A classic
+   synchronous script blocks parsing where it sits, so nothing visible has been parsed yet
+   when it runs. Verified in the served HTML: the tag now appears at byte 1508, before any
+   visible markup. A comment in `layout.tsx` records this so nobody "modernises" it back into
+   `next/script`.
+
+2. **React 19's `react-hooks/set-state-in-effect` lint rule rejected the first
+   ThemeProvider.** The read-localStorage-on-mount pattern (`useEffect` → `setState`) is the
+   conventional approach and is now flagged. Rather than suppress it, the provider was
+   rewritten around **`useSyncExternalStore`**, which is the correct API for reading external
+   mutable state: it handles the server/client split explicitly (`getServerSnapshot` returns
+   `null`, meaning "unknown") instead of guessing during render. Two things fell out of that
+   for free — cross-tab sync via the `storage` event, and **the provider component became
+   unnecessary entirely**, since the store is module-level. The lint rule pointed at a genuinely
+   better design, not just a style preference.
+
+**Decisions made**:
+1. **Theme state lives in the DOM and localStorage, not React.** `public/theme-init.js` must
+   apply the theme before React exists, so the DOM is already the source of truth by the time
+   components mount. `useSyncExternalStore` reads from there rather than duplicating it.
+2. **No-flash script kept as a static file, not inlined.** This upholds security.md §4.2
+   rule 8 (never `dangerouslySetInnerHTML`, which is how inline scripts get injected in React)
+   and has a second payoff: an external script needs no CSP nonce or hash, so the Phase 2 CSP
+   can stay `script-src 'self'` without special-casing. Cost is one tiny same-origin request.
+3. **Cookie-based theming was considered and rejected.** Reading a cookie server-side would
+   give zero flash and no client script at all — but it forces dynamic rendering, which would
+   disable ISR caching on every page just to pick a colour scheme. Wrong trade for a content
+   site whose whole performance story is edge caching (system-design.md §3).
+4. **Toggle switches light/dark only; "follow system" is the default but not a third
+   selectable state.** A three-way cycle needs explanatory UI to be usable. Absence of a
+   stored value means "follow system", and the OS is still tracked live via a `matchMedia`
+   listener while no explicit choice exists.
+5. **Nav scrolls horizontally on small screens rather than collapsing to a hamburger.** Five
+   short links fit on a phone; a menu would add JavaScript, a focus trap, and an escape-key
+   handler for no benefit at this size.
+6. **Footer deliberately ships without social links.** Those belong to the profile record and
+   arrive with database content in Phase 2 — hardcoding placeholder URLs would be exactly the
+   "content inside components" pattern plan.md §8 exists to prevent.
+7. **Skip-to-content link added**, and section anchors carry `scroll-mt-14` so a nav jump
+   does not land with the heading hidden under the sticky header.
+
+**Verification performed**: lint, typecheck, and build all pass. Production server served and
+HTML inspected to confirm — blocking script present and positioned before visible markup; all
+five section anchors present with matching nav hrefs; skip link present; `aria-label`s on the
+nav and toggle. **The string "admin" appears zero times in the rendered HTML**, confirming the
+unlisted-route requirement (plan.md §3a) holds at the markup level. The theme script's logic
+was unit-tested against a mock DOM across five cases including junk values and a localStorage
+that throws (private browsing) — all pass.
+
+**Not verified**: no browser automation available here, so the *visual* absence of a theme
+flash has not been observed directly — the claim rests on the script's position in the
+document and the tested logic. Worth a manual check on the Vercel preview.
+
+**Work completed**: `public/theme-init.js`, `src/components/theme/{use-theme.ts,theme-toggle.tsx}`,
+`src/components/layout/{header.tsx,footer.tsx}`, `src/components/ui/section.tsx`, rewritten
+`src/app/layout.tsx` and `src/app/page.tsx`, `lucide-react` added, and this entry.
+
+**Still open**: the `dependabot.yml` dev-dependencies group still batches major bumps (see the
+previous entry); PR #7 remains red. Not fixed here to keep this branch scoped.
