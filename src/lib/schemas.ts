@@ -18,12 +18,32 @@ import type { Database } from "./supabase/types";
 const emptyToNull = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === "" ? null : value), schema.nullable());
 
-/** Mirrors the `~* '^https?://'` CHECK constraints. */
+/** Mirrors the `~* '^https?://'` CHECK constraints. For links off-site. */
 const httpUrl = z
   .string()
   .trim()
   .max(2048, "URL is too long")
   .regex(/^https?:\/\//i, "Must start with http:// or https://");
+
+/**
+ * For assets that may be hosted either externally (Supabase Storage) or in this
+ * repo under `public/` — the resume PDF and avatar image.
+ *
+ * Accepts an absolute http(s) URL, or a site-relative path like `/resume.pdf`.
+ * The `(?!\/)` matters: it rejects protocol-relative URLs such as `//evil.com`,
+ * which a browser resolves to an external origin despite looking like a local
+ * path. `javascript:` and `data:` fail the pattern outright.
+ *
+ * Mirrors the CHECK constraints added in migration 0002.
+ */
+const assetUrl = z
+  .string()
+  .trim()
+  .max(2048, "URL is too long")
+  .regex(
+    /^(https?:\/\/|\/(?!\/))/i,
+    "Must be an http(s) URL or a site-relative path such as /resume.pdf",
+  );
 
 /** Mirrors the `projects_slug_format` CHECK constraint. */
 const slug = z
@@ -61,8 +81,8 @@ export const profileSchema = z.object({
   contact_email: emptyToNull(z.email("Must be a valid email address")),
   github_url: emptyToNull(httpUrl),
   linkedin_url: emptyToNull(httpUrl),
-  resume_url: emptyToNull(httpUrl),
-  avatar_url: emptyToNull(httpUrl),
+  resume_url: emptyToNull(assetUrl),
+  avatar_url: emptyToNull(assetUrl),
 });
 
 // -----------------------------------------------------------------------------

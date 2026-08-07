@@ -101,11 +101,25 @@ Drop files into `public/` and tell me the filenames, or hand them over however y
 I only need to know what exists and where. **None of these block current work**; the site
 renders without them.
 
-| Asset | Format & size | Used for | Needed by |
+Binary files cannot be handed over through a chat transcript. **Commit them into `public/`
+yourself and say what you added** — that is the whole handover.
+
+| Asset | Format & size | Commit to | Status |
 |---|---|---|---|
-| Profile photo | Square, ≥ 800×800, JPG or PNG | Hero section, OG preview image | Phase 5 |
-| Favicon source | 512×512 PNG or an SVG | Browser tab icon, `manifest.json` | Phase 5 |
-| Resume PDF | PDF, ideally < 2 MB | `/resume` download | Phase 2 (resume route) |
+| Resume PDF | PDF, ideally < 2 MB | `public/resume.pdf` | **Outstanding.** CV *content* received and seeded; the file itself is still needed for the download link |
+| Profile photo | **Square**, ≥ 800×800, JPG/PNG | `public/avatar.jpg` | **Outstanding.** A landscape photograph was supplied — usable as a hero or OG background, but not as an avatar (see below) |
+| Favicon source | 512×512 PNG or an SVG | `public/` | Outstanding, needed by Phase 5 |
+
+Once a file is committed, its value in the database is the site-relative path — `/resume.pdf`,
+`/avatar.jpg`. Migration 0002 and `assetUrl` in `src/lib/schemas.ts` both accept that form
+alongside absolute URLs, so a file in `public/` and a file in Supabase Storage are equally
+valid.
+
+**On the landscape photo**: a wide scenic image cannot be cropped into a square avatar without
+losing the subject, so it is not wired in as one. It *would* work well as a hero background or
+as the backdrop for the generated OG preview image in Phase 5 — say the word if you want it
+used that way. A separate square headshot is still the better choice for the avatar slot,
+since that is what a recruiter scanning the page expects to see.
 
 Two open questions on assets:
 
