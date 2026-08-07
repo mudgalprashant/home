@@ -226,3 +226,81 @@ GitHub web UI.
 
 **Not yet started**: still no application code. This entry only adds repo tooling/docs
 infrastructure; Phase 1 of plan.md (Next.js scaffold) is still the next product step.
+
+---
+
+## 2026-08-08 — Security guide added (KB/security.md) + wiki Security page
+
+**Context**: `wiki-pages` merged to `main` (PR #2), and the user confirmed the GitHub Wiki is
+now created, so the sync workflow has something to push to. User then asked for documentation
+covering security considerations, vulnerability checks, and the points from which attacks are
+possible — explicitly naming the inspect-element window, the URL, and Postman — plus
+instructions for handling those cases *during* development, with both KB and wiki updated.
+
+**Interpretation note**: the user wrote "UI breakpoints or points from where the attacks are
+possible." Read as *attack entry points* (break-in points), not CSS responsive breakpoints —
+the examples given (DevTools, URL, Postman) settle it. Documented as "entry points" throughout
+to avoid the ambiguity resurfacing later.
+
+**Decisions made**:
+1. **New standalone `KB/security.md` rather than expanding system-design.md §11.** The
+   content is substantial (threat model, five entry-point sections, development rules,
+   verification procedures, per-phase gates) and serves a different purpose from the
+   architecture doc — it's meant to be followed while writing code, not read once at design
+   time. Also avoids renumbering system-design.md sections, which plan.md and this log
+   cross-reference by number (same constraint that shaped the flow-diagram placement on
+   2026-08-07).
+2. **Organized the doc around a single load-bearing principle** — "everything the browser
+   receives is public, everything it sends is attacker-controlled" — with every rule derived
+   from it, instead of a flat checklist. A flat list gets skimmed and partially applied; a
+   principle plus derivations lets a developer reason about a case the doc didn't enumerate.
+3. **Made RLS-as-the-real-boundary the doc's centerpiece.** The most important architectural
+   fact about this stack is that the Supabase anon key ships publicly in the bundle by design,
+   so PostgREST is directly callable from Postman with it. Every control that exists only in
+   application code is bypassable; only database policies aren't. Added a trust-boundary
+   Mermaid diagram (§2) whose whole point is the arrow going from "any HTTP client" straight
+   past the app to the database.
+4. **Added a "Postman Test" and an "RLS ritual" as named, repeatable procedures** (§3.3,
+   §5.2) rather than generic advice to "test security." Named procedures get run; "be careful"
+   doesn't. §5.2 step 6 (valid session, non-allow-listed account) is called out specifically
+   because it's the step that catches authentication being confused with authorization.
+5. **Security gates woven into every phase of plan.md** (§6 of security.md, mirrored into
+   plan.md's phase list and definition-of-done) instead of a single pre-launch audit. The
+   expensive failures here — RLS misconfigured, admin panel publicly reachable via preview
+   deploys — are foundational; finding them at Phase 7 means rework, finding them at Phase 1
+   costs nothing.
+6. **Flagged Vercel preview-deployment exposure as the most likely real mistake** (§4.3 rule
+   12). Preview builds run the admin code at a public URL against whatever database the env
+   vars point to, and nothing about it looks wrong locally. Written as a must-verify item
+   before Phase 3 ships rather than an assertion about Vercel's current tier behavior, since
+   platform defaults change and asserting them confidently in a doc that outlives the session
+   would be worse than telling the reader to check.
+
+**Work completed this session**:
+- Created branch `security-docs` off `main` (post-merge of PR #2).
+- Added `KB/security.md`: core principle (§1), trust-boundary diagram (§2), five attack
+  entry points with attack/defense/verify tables (§3: DevTools, URL manipulation, direct API
+  access, forms, file uploads), development rules split across database/application/repo
+  (§4), automated and manual vulnerability checks (§5), per-phase gates (§6), threat model
+  with an explicit proportionality statement (§7).
+- Updated `KB/system-design.md` §11 with a pointer to security.md plus an RLS-is-the-boundary
+  bullet. No section renumbering.
+- Updated `KB/plan.md`: security gate bullet added to Phases 1-7, Phase 0 checklist item
+  marked done, definition-of-done now includes clearing the phase's security gate and — for
+  the admin panel specifically — the Postman write test.
+- Updated `KB/README.md`: security.md added to the contents list as item 3 (decision-log
+  moved to 4), plus a working-agreement bullet to follow §4 rules while coding.
+- Added `wiki/Security.md` and linked it from `wiki/Home.md`, `wiki/_Sidebar.md`,
+  `wiki/README.md`, `wiki/Architecture.md`, and `wiki/Admin-Guide.md`.
+- Appended this entry.
+
+**Note on wiki sync**: this branch touches `wiki/**`, so merging it to `main` will trigger
+`.github/workflows/sync-wiki.yml` — this is the first real exercise of that workflow. If the
+push step fails on wiki write permissions, the fix is the `WIKI_SYNC_TOKEN` secret described
+in the workflow file's header comment (see the 2026-08-08 wiki entry above, point 4).
+
+**Open items carried forward**: unchanged content checklist from prior entries. Nothing in
+this entry blocks Phase 1.
+
+**Not yet started**: still no application code. Phase 1 of plan.md remains the next product
+step — now with a defined security gate attached to it.

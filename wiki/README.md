@@ -17,8 +17,9 @@ change, and the live wiki updates itself after merge.
 This repo has two documentation surfaces, and they're not duplicates of each other:
 
 - **`/KB`** — the detailed planning source of truth: full system design, phase-by-phase
-  roadmap, and an append-only decision log. Dense, internal-facing, written for whoever
-  (human or AI) needs full context to continue the work.
+  roadmap, the security guide (threat model and development rules), and an append-only
+  decision log. Dense, internal-facing, written for whoever (human or AI) needs full context
+  to continue the work.
 - **`/wiki`** (this folder) — a shorter, human-readable summary for anyone browsing the
   GitHub repo's Wiki tab. Each page links back to the relevant `/KB` file for full detail
   rather than restating it.
@@ -34,6 +35,7 @@ folder's *current* content to the live wiki, it does not keep the words themselv
 - `Home.md` — landing page and links to everything else
 - `Roadmap.md` — condensed from `/KB/plan.md`
 - `Architecture.md` — condensed from `/KB/system-design.md`, includes the system overview diagram
+- `Security.md` — condensed from `/KB/security.md`: core principle, attack entry points, verification
 - `Admin-Guide.md` — practical guide to the admin panel, condensed from `/KB/plan.md` §3a and `/KB/system-design.md` §7
 - `_Sidebar.md` — GitHub wiki custom sidebar (special filename, rendered on every page)
 - `_Footer.md` — GitHub wiki custom footer (special filename, rendered on every page)

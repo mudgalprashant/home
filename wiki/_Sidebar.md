@@ -3,6 +3,7 @@
 - [Home](Home.md)
 - [Roadmap](Roadmap.md)
 - [Architecture](Architecture.md)
+- [Security](Security.md)
 - [Admin Guide](Admin-Guide.md)
 
 ---

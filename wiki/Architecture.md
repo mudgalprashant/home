@@ -61,9 +61,10 @@ flowchart TB
 
 Visitors only ever read. The admin path is the only one with write intent, and every write
 is gated twice — once by session auth in `middleware.ts`, and again by a Postgres
-row-level-security policy that only allows the single allow-listed admin email to write. See
-[Admin Guide](Admin-Guide.md) for what that looks like in practice, and
-`/KB/system-design.md` §7 for the full security reasoning.
+row-level-security policy that only allows the single allow-listed admin email to write. The
+database-level policy is the one that actually matters, because the Supabase API is reachable
+directly from any HTTP client without touching this app at all — see [Security](Security.md)
+for that reasoning, and [Admin Guide](Admin-Guide.md) for what it looks like in practice.
 
 ## Why dynamic instead of static
 
