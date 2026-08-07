@@ -1,0 +1,160 @@
+# Decision Log
+
+Chronological record of decisions, scope changes, and completed work on this project.
+Purpose: any AI session or reviewer picking this up cold should be able to read this file
+top-to-bottom and understand *what's true now and why*, without re-deriving it from chat
+history that isn't available to them.
+
+## How to use this file
+
+- Append new entries at the bottom, newest last. Don't rewrite history — if a decision gets
+  reversed, add a new entry that says so and links back (`See 2026-08-07 entry above`).
+- Every entry: **date, what changed, why, what it affects**. Skip the why and this file loses
+  its entire point — "we chose X" is useless without "because Y."
+- Log decisions and completed milestones, not routine edits. A typo fix doesn't belong here;
+  a tech-stack choice, scope cut, or "phase N shipped" does.
+- If a future session changes course on something logged here, that's fine — the log is a
+  timeline, not a contract. Just record the change and the reason, same as any other entry.
+
+---
+
+## 2026-08-07 — Initial planning pass
+
+**Context**: Repo started as an empty scaffold (`README.md` with just "# home") plus a
+`KB/` folder the user seeded with a generic starter `plan.md` and `README.md`. User asked
+for these to be replaced with a more robust plan and system design, explicitly for a
+personal portfolio site aimed at impressing recruiters for Senior Software Engineer roles.
+
+**Decisions made** (via direct question to the user, not assumed):
+1. **Framework: Next.js, static export, App Router.** Chosen over Astro/plain Vite/React SPA
+   because it gives the strongest "senior engineer" signal, has first-class free tooling for
+   OG image generation (`@vercel/og`), and static export keeps hosting portable.
+2. **Hosting: Vercel free tier.** Chosen over GitHub Pages/Netlify/Cloudflare Pages for
+   zero-config Next.js support and free per-PR preview URLs. Static export keeps this
+   non-lock-in — see system-design.md §3 for the migration escape hatch.
+3. **Content: placeholders now, real content later.** User doesn't have resume/GitHub
+   username/project list ready to hand over in this session. Site is built content-first
+   (typed `/content` data files) specifically so this doesn't require a redesign later —
+   see system-design.md §5. Real-content swap is tracked as Phase 5 in plan.md.
+
+**Work completed this session**:
+- Rewrote `KB/plan.md`: goals, locked-in decisions table, information architecture (8
+  sections + 2 standalone routes), concrete definition of "interactive/engaging" (not vibes —
+  named features + named anti-patterns to avoid), social preview requirements, 6-phase
+  roadmap (Phase 0 planning → Phase 6 launch), definition of done per phase.
+- Wrote `KB/system-design.md` (new file): tech stack table with free-tier limits noted per
+  tool, directory structure, typed content data model with example shape, OG image generation
+  strategy (build-time static PNG generation to stay compatible with static export — this is
+  the one non-obvious technical solve in the whole design, see §6), navigation/interactivity
+  architecture, performance/accessibility budget with concrete Lighthouse targets, CI/CD
+  pipeline, security notes, explicit out-of-scope list with reasoning.
+- Wrote this decision log (new file).
+- Updated `KB/README.md` to index the new structure (see next section / that file directly).
+
+**Open items carried forward** (see plan.md §2 for the checklist):
+- Real name/headline/bio, GitHub username, LinkedIn URL, email, resume PDF
+- Real project list, work history, skills list
+- Domain name decision (or default to `*.vercel.app`)
+- Profile photo
+
+**Not yet started**: no code exists yet. Next session should begin at Phase 1
+(scaffold & deploy skeleton) per plan.md, *unless* the user wants to review/amend the plan
+and system design first — check plan.md §6 Phase 0's checklist for sign-off status before
+assuming it's approved.
+
+---
+
+## 2026-08-07 — Dynamic content + admin panel (supersedes static-only design)
+
+**Context**: Same session as the initial planning pass above. User asked for the site to be
+dynamic: an admin should be able to add/update/remove projects, skills, and other content.
+The admin page should have no entry point anywhere in the public site (not in nav, footer,
+etc.) but be reachable by navigating directly to its URL.
+
+**What this reverses**: the original system-design.md explicitly chose Next.js **static
+export** and ruled out both a database and a CMS (see its original §11 "out of scope" and
+§3 "why static export"). That choice is incompatible with "admin edits content and it goes
+live" — static export has no server to receive a write. This is a genuine architecture pivot,
+not an addition on top of the old design.
+
+**Decisions made**:
+1. **Drop static export, move to standard Next.js/Vercel deployment** (SSR + Server Actions +
+   Route Handlers, still on Vercel's free Hobby tier — this doesn't cost anything, it just
+   uses more of what Vercel's free tier already offers). Public pages use ISR with on-demand
+   revalidation so they stay static-fast for visitors while updating immediately when the
+   admin saves — see system-design.md §3.
+2. **Add Supabase (free tier) as the database + auth + storage provider.** Chose one provider
+   for all three instead of stitching together a separate DB, a separate auth service, and
+   separate file storage — smaller integration surface, still fully free at this scale. See
+   system-design.md §2 and §5 for schema.
+3. **Admin route is unlisted AND requires real authentication** — the user's ask was
+   specifically "no entry point in the site, but reachable by direct URL." Implemented that
+   UX request literally (no nav/footer/sitemap link, `noindex`), but added Supabase Auth +
+   Postgres RLS policies restricted to a single allow-listed admin email as the actual
+   security boundary, since a URL that merely isn't linked is still discoverable (referrers,
+   browser history, guessed routes) and isn't a substitute for auth. This was a judgment call
+   made in the design rather than asked back to the user — flagged clearly in
+   system-design.md §7 and in plan.md's decisions table so it's visible and reversible if the
+   user actually wants URL-only, no-login access instead.
+4. **OG image generation got simpler as a side effect**: the original design needed a
+   build-time static-PNG workaround specifically because static export can't run a live image
+   route. That workaround is gone — dynamic content now uses Next.js's standard
+   `opengraph-image.tsx` convention rendered per request. Noted in system-design.md §6 as an
+   incidental win, not an added cost, of this pivot.
+
+**Work completed this session**:
+- Rewrote `KB/plan.md`: goal statement now includes dynamic/admin-editable content, new
+  decisions-table rows (framework/hosting rationale updated, DB+Auth choice, admin access
+  model), new §3a describing the admin panel's scope, phase plan restructured from 6 to 8
+  phases (0-7) to insert data-layer provisioning (Phase 1), admin panel build (Phase 3), and
+  reframe "live content swap" as "live content entry via the admin UI" (Phase 6) rather than
+  a file edit. Added admin-specific criteria to the definition-of-done section.
+- Rewrote `KB/system-design.md`: added a revision note at the top pointing here; replaced the
+  "why static export" section with "why not static export anymore" (§3); added Supabase to
+  the stack table; added full Postgres schema + RLS approach (§5); simplified the OG image
+  section now that a live route is possible (§6); added a new §7 dedicated to admin
+  access/security reasoning (the most important addition — this is where the
+  hidden-URL-is-not-security judgment call is recorded); expanded the security and risks
+  sections accordingly; updated out-of-scope list (third-party CMS still excluded, self-built
+  admin no longer is).
+- Appended this entry.
+
+**Open items carried forward**: same content checklist as the initial entry, plus one new
+item — **which email should be allow-listed as the admin login** (plan.md §2). This does not
+have to be decided before Phase 1 starts, but must be decided before Phase 3 (admin panel)
+can be built.
+
+**Not yet started**: still no code. Next session begins at Phase 1 per the revised plan.md,
+which now includes Supabase provisioning as part of that phase (not a later add-on).
+
+---
+
+## 2026-08-07 — Flow diagrams added to system-design.md
+
+**Context**: User asked for flow diagrams in system-design.md — the doc explained several
+request/data flows in prose (ISR revalidation, OG image generation, admin auth, admin writes)
+without a visual to go with them.
+
+**What changed**: added five Mermaid diagrams (render natively on GitHub and in most
+Markdown viewers/IDE extensions; also readable as structured text by anything that can't
+render Mermaid, which matters for this folder's "context for other AI sessions" purpose):
+- New **§1a System architecture overview** (flowchart) — visitor/admin/crawler paths through
+  the same Next.js app and single Supabase project, at a glance.
+- **§3.1** (sequence) — ordinary cached visit vs. the moment an admin save triggers
+  `revalidatePath`.
+- **§6.1** (sequence) — OG image request flow, same edge-caching shape as §3.1.
+- **§7.1** (sequence) — admin login flow through `middleware.ts` and Supabase Auth, including
+  the allow-list check.
+- **§7.2** (sequence) — admin content write flow: Zod validation client-side, RLS
+  authorization at the database, `revalidatePath` on success.
+
+**Why inserted as subsections (§1a, §3.1, §6.1, §7.1, §7.2) instead of new top-level
+sections**: plan.md and this file's own earlier entries cross-reference system-design.md by
+section number (e.g. "system-design.md §7"). Renumbering top-level sections would have
+silently broken those references. Subsections slot in without shifting anything after them —
+same pattern plan.md already used for §3a (admin panel scope).
+
+**Work completed**: edited `KB/system-design.md` only (five diagrams added, no other content
+changed). Appended this entry.
+
+**Not yet started**: still no code. Next session begins at Phase 1 per plan.md.
