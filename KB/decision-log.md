@@ -695,3 +695,62 @@ rewritten `src/app/page.tsx`, and this entry.
 **Still open for Phase 2**: resume route with printable export, and the CSP headers deferred
 from Phase 1 — each its own branch. The Phase 2 security gate also requires the RLS read-path
 ritual against the real project, which still depends on the user provisioning Supabase.
+
+---
+
+## 2026-08-08 — Content-Security-Policy, in Report-Only mode (`feat/csp-headers`)
+
+**Context**: Closes the CSP item deferred from Phase 1, which was postponed specifically so it
+could be written against a real build instead of guessed at.
+
+**What the build actually contains** (measured, not assumed): the served HTML has 10 `<script>`
+tags — 8 external, all same-origin under `/_next/static/`, and **2 inline**: Next's RSC
+bootstrap (43 bytes) and an ~11KB RSC payload. Zero inline `<style>` blocks and zero `style=`
+attributes.
+
+**Decision: `script-src` permits `'unsafe-inline'`.** Both stricter alternatives were ruled out
+by the measurement above:
+- **Hashes** would need recomputing whenever the payload changes, which for a database-backed
+  site means on every admin save. Unworkable.
+- **Nonces** must vary per request, so HTML carrying one cannot be cached. That disables ISR
+  on every page — the caching this whole architecture rests on (system-design.md §3) — to
+  harden a single path.
+
+The residual XSS risk is bounded by properties this codebase already has:
+`dangerouslySetInnerHTML` is banned (security.md §4.2 rule 8, still zero occurrences), React
+escapes interpolated values, and no user-submitted content is rendered anywhere. The policy
+still blocks the thing that matters most in practice — loading script from an
+attacker-controlled origin — plus base-tag injection, form hijacking, plugin embedding, and
+framing. Verified 0 cross-origin scripts in the output, so `'self'` is not aspirational.
+
+This is also where the Phase 1 decision to keep the theme script in a static file pays off: it
+needs no CSP exception at all.
+
+**Decision: shipped as `Content-Security-Policy-Report-Only`, not enforcing.** A policy that is
+subtly too strict breaks the site silently in the browser, and this one has never been loaded
+by a browser — there is none in this environment. Report-Only surfaces violations in the
+console while blocking nothing, which is the standard rollout path. Shipping an unverified
+enforcing policy would repeat the mistake Phase 1 avoided by deferring CSP in the first place.
+
+**To enforce, once verified** (steps kept here so they survive independently of runbook.md):
+1. Open the Vercel deploy preview for this PR (or production after merge).
+2. Open DevTools → Console. Look for `Content-Security-Policy-Report-Only` violation entries.
+3. Click through: home page, theme toggle, every nav anchor, every external link.
+4. If the console is clean, change `CSP_HEADER_NAME` in `next.config.ts` from
+   `"Content-Security-Policy-Report-Only"` to `"Content-Security-Policy"`.
+5. If violations appear, they name the blocked directive and origin — add that origin to the
+   relevant directive rather than loosening `default-src`.
+
+**Decision: CSP applies in production only.** Next opens a websocket for hot reload in
+development, which `connect-src 'self'` flags on every page load; that noise would bury real
+violations. Verified: production response carries the CSP header, development does not, and the
+five baseline security headers are present in both.
+
+**Known follow-up**: `form-action 'self'` will need revisiting when the contact form is wired
+up in Phase 6, since it posts to a third-party endpoint (Web3Forms/Formspree). Noted in a
+comment at the directive itself rather than only here, so whoever adds the form sees it.
+
+**Verification performed**: lint, typecheck, build pass. Production server served and all six
+headers confirmed present with correct values; dev server confirmed to omit CSP while keeping
+the baseline headers; script origins confirmed 100% same-origin. **Not verified**: actual
+browser enforcement behaviour — which is precisely why it ships in Report-Only.
