@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens.
+ *
+ * Light values are defined on bare :root so every token always has a value.
+ * Dark is applied two ways: by system preference (guarded so an explicit light
+ * choice wins) and by an explicit data-theme="dark" attribute. The theme toggle
+ * lands in a later branch and only has to set that attribute — the token layer
+ * is already in place for it.
+ */
+:root {
+  --background: #fcfcfd;
+  --surface: #ffffff;
+  --foreground: #12141a;
+  --muted: #5b6070;
+  --border: #e4e6ec;
+  --accent: #3b5bdb;
+  --accent-foreground: #ffffff;
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --background: #0b0c10;
+    --surface: #14161c;
+    --foreground: #eceef4;
+    --muted: #969cad;
+    --border: #262a35;
+    --accent: #91a7ff;
+    --accent-foreground: #0b0c10;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0b0c10;
+  --surface: #14161c;
+  --foreground: #eceef4;
+  --muted: #969cad;
+  --border: #262a35;
+  --accent: #91a7ff;
+  --accent-foreground: #0b0c10;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-sans: var(--font-sans-variable);
+  --font-mono: var(--font-mono-variable);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans-variable), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Respect an OS-level reduced-motion preference globally, so no individual
+   component has to remember to (KB/plan.md §4). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

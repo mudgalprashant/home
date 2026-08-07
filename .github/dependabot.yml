@@ -1,0 +1,24 @@
+version: 2
+
+# Dependency vulnerability alerts and version-update PRs (KB/security.md §5.1).
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Batch routine updates so a portfolio repo doesn't generate a PR per package.
+    # Security advisories are always raised individually and ignore this grouping.
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      production-dependencies:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
