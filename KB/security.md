@@ -203,7 +203,11 @@ Follow these while writing code. They are the operational form of §1.
 
 10. No secrets in git, ever — including in the migration files and seed data. If one is
     committed, rotating it is mandatory; deleting the commit is not sufficient, because the
-    value is already in the remote's history and any clone.
+    value is already in the remote's history and any clone. The same applies to chat logs,
+    issues, and PR descriptions: nobody working on this codebase needs a secret's *value*,
+    only its variable name. See [runbook.md](./runbook.md) §1 for which values here are
+    genuinely secret (fewer than you would think — the anon key is public by design), where
+    each belongs, and the rotation procedure.
 11. `.env.local` stays git-ignored from the very first commit of Phase 1, before any env file
     exists to accidentally add.
 12. **Verify Vercel preview deployment visibility before the admin panel ships (Phase 3).**
