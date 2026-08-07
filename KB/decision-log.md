@@ -958,3 +958,67 @@ more code:
 - **CSP is Report-Only** and needs a browser console check before being switched to enforcing.
 
 plan.md and wiki/Roadmap.md updated to say exactly this, rather than marking the phase done.
+
+---
+
+## 2026-08-08 — Session paused. START HERE next session.
+
+Work stopped here at the owner's request. This entry is the cold-start summary: read it
+first, then the entries above for reasoning.
+
+### Repository state
+
+`main` is healthy — verified from a clean `npm ci`: lint, typecheck, build, and
+`npm audit --audit-level=high` all pass. Working tree clean, nothing unpushed.
+
+**One PR open: #18** (`feat/resume-route`) — printable `/resume` route plus the Phase 2 status
+updates to plan.md and wiki/Roadmap.md. Awaiting review. Everything before it (#4, #8, #9,
+#10, #13, #14, #15, #16, #17) is merged.
+
+### What exists and works
+
+Next.js 16 + React 19 + TypeScript + Tailwind v4 on Vercel-ready config. Public site renders
+the owner's real content from Supabase — hero with avatar, about, experience, projects,
+skills, contact — plus `/resume`. Theme toggle with no flash. Security headers and a
+Report-Only CSP. CI gates lint/typecheck/build/audit. Wiki auto-syncs from `wiki/`.
+
+Verification has been done against a **mock PostgREST server**, not a real database.
+
+### The single most important open risk
+
+**The SQL has never been executed anywhere.** `supabase/migrations/0001_content_schema.sql`
+and `0002_asset_url_constraints.sql` are reviewed by eye only — no Docker, no local Postgres,
+no Supabase project. The RLS policies protecting every write are therefore **unverified**.
+Nothing should be built on top of them until `supabase/README.md` §5 has been run and passed.
+
+### Owner's outstanding actions (none are code)
+
+1. **Provision Supabase**, apply both migrations + `seed.sql`, set the real admin email,
+   then **run the RLS ritual** (`supabase/README.md` §5). Closes the Phase 2 security gate.
+2. **Connect Vercel** and add the two `NEXT_PUBLIC_SUPABASE_*` vars.
+3. **Enable branch protection on `main`** (runbook.md §4) — require a PR and the `verify`
+   check. This is what would have prevented the ESLint 10 incident logged above.
+4. **Enable secret scanning + push protection and CodeQL** (runbook.md §4).
+5. **Check the CSP console** on a preview deploy, then flip `CSP_HEADER_NAME` in
+   `next.config.ts` to enforcing (steps in the 2026-08-08 CSP entry).
+6. **Supply a favicon source** (512×512 PNG or SVG) — needed by Phase 5.
+
+### Decisions still awaiting the owner
+
+- **Education / awards have no tables.** Gold medal, CGPA, and HashCode rank appear in the PDF
+  but not on `/resume`. Adding them means a migration plus admin CRUD — much cheaper to decide
+  **before** Phase 3 builds the admin forms.
+- **Project screenshots**: `projects` has no image column. Same timing argument.
+- **Brand icons**: lucide 1.x dropped GitHub/LinkedIn marks; links use a generic arrow.
+- **Resume PDF publishes the phone and email** that were deliberately kept off the page.
+  Normal for a portfolio, but should be a choice.
+- **Bio and the synthesised project entries** are drafts marked `TODO(owner)` in `seed.sql`.
+
+### Next build step
+
+**Phase 3 — the private admin panel**: `middleware.ts` guarding `/admin/**`, Supabase Auth
+login, and CRUD Server Actions with auth guards + Zod, each calling `revalidatePath`. This is
+where the security work concentrates, which is why item 1 above should land first — the RLS
+policies should be known-good before code depends on them.
+
+Read `KB/security.md` §4 before writing any of it, and `KB/plan.md` Phase 3 for the gate.
