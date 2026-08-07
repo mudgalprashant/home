@@ -10,9 +10,15 @@ export function Footer() {
   return (
     <footer className="border-t border-border">
       <div className="mx-auto flex max-w-3xl flex-col gap-1 px-6 py-8">
-        <p className="text-sm text-muted">
-          © {new Date().getFullYear()} {site.name}
-        </p>
+        {/*
+          No year here on purpose. This page is statically prerendered, so
+          `new Date().getFullYear()` would be evaluated at build time and frozen
+          into the HTML — the footer would read "© 2026" throughout 2027 until
+          something happened to trigger a redeploy. Rendering it on the client
+          instead would mean shipping JS and risking a hydration mismatch for a
+          detail nobody reads. Omitting it is correct in every year.
+        */}
+        <p className="text-sm text-muted">© {site.name}</p>
         <p className="font-mono text-xs text-muted">
           Built with Next.js. Source on GitHub.
         </p>

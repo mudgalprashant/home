@@ -7,16 +7,39 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+
     # Batch routine updates so a portfolio repo doesn't generate a PR per package.
-    # Security advisories are always raised individually and ignore this grouping.
+    #
+    # Both groups are restricted to minor and patch. Major bumps are deliberately
+    # left out so they arrive as individual PRs that can be evaluated and tested
+    # on their own. The first version of this file restricted only the production
+    # group, which let three unrelated majors -- typescript 5→7, eslint 9→10, and
+    # @types/node 20→26 -- batch into a single PR that failed CI as a unit, with
+    # no way to take the safe parts. Security advisories are always raised
+    # individually and ignore this grouping entirely.
     groups:
       dev-dependencies:
         dependency-type: development
+        update-types:
+          - minor
+          - patch
       production-dependencies:
         dependency-type: production
         update-types:
           - minor
           - patch
+
+    ignore:
+      # typescript-eslint does not support TypeScript 7 yet, so a TS 7 bump fails
+      # `npm run lint` with "typescript-eslint does not support TS 7.0". Without
+      # this, Dependabot re-raises the same broken PR every week.
+      #
+      # REMOVE THIS once typescript-eslint ships TS 7 support -- it is a
+      # deliberate, temporary block on a known incompatibility, not a policy of
+      # skipping major TypeScript versions.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: "/"
