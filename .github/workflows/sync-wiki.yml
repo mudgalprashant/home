@@ -1,0 +1,61 @@
+name: Sync wiki
+
+# Mirrors wiki/**  (source of truth, reviewed via normal PRs) into this repo's
+# GitHub Wiki (a separate git repo: <this-repo>.wiki.git) so the live wiki updates
+# automatically on every push to main. See wiki/README.md for the authoring rules.
+#
+# Setup required before this works (one-time, manual — not something this workflow
+# or an API call can do on your behalf):
+#   1. Repo Settings -> General -> Features -> "Wikis" must be enabled.
+#   2. The wiki repo must be initialized at least once: open the repo's Wiki tab and
+#      create any first page through the web UI. GitHub only creates the underlying
+#      <repo>.wiki.git repository after that — pushing to it before then will fail
+#      with a "repository not found" error.
+#   3. Wiki write access via the default GITHUB_TOKEN is inconsistent across GitHub's
+#      permission model (a commonly reported limitation, not specific to this repo).
+#      If the "Push to wiki" step below fails with a permission or not-found error,
+#      create a classic Personal Access Token with the `repo` scope and add it as a
+#      repository secret named WIKI_SYNC_TOKEN — the workflow prefers that secret
+#      automatically when present, falling back to GITHUB_TOKEN otherwise.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "wiki/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          path: main-repo
+
+      - name: Checkout wiki repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki-repo
+          token: ${{ secrets.WIKI_SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Sync wiki source into wiki repo
+        run: rsync -av --delete --exclude='.git' main-repo/wiki/ wiki-repo/
+
+      - name: Commit and push if changed
+        working-directory: wiki-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki content changed, nothing to sync."
+            exit 0
+          fi
+          git commit -m "Sync wiki from main@${GITHUB_SHA}"
+          git push

@@ -158,3 +158,71 @@ same pattern plan.md already used for §3a (admin panel scope).
 changed). Appended this entry.
 
 **Not yet started**: still no code. Next session begins at Phase 1 per plan.md.
+
+---
+
+## 2026-08-08 — GitHub Wiki added, synced automatically from a new branch
+
+**Context**: The `system-design` branch was merged to `main` (PR #1). User asked for a new
+branch to create wiki pages, and for the wiki to "also be updated regularly on each commit
+and push" alongside the knowledge base.
+
+**Key fact that shaped the design**: a GitHub repo's Wiki is a *separate* git repository
+(`<repo>.wiki.git`), not something that lives in a branch of the main repo. "Create a branch
+to create the wiki pages" therefore can't mean committing directly to the wiki's own git
+history from here — it means authoring wiki *source* in this repo (reviewable via normal
+PRs, consistent with how `/KB` already works) and mechanically mirroring it to the real wiki.
+That mirroring is what makes "updated on each commit and push" literal rather than a manual
+reminder: a GitHub Actions workflow, not a habit to remember.
+
+**Decisions made**:
+1. **New branch `wiki-pages`, cut from latest `main` post-merge.** Contains a new `/wiki`
+   folder (hand-authored source: Home, Roadmap, Architecture, Admin-Guide, plus the special
+   `_Sidebar.md`/`_Footer.md` GitHub wiki files) and a new
+   `.github/workflows/sync-wiki.yml` — the first CI workflow in this repo.
+2. **`/wiki` summarizes, `/KB` stays authoritative.** Wiki pages are deliberately shorter
+   than their `/KB` counterparts and link back to the relevant `/KB` file/section rather than
+   restating it — avoids two independently-drifting copies of the same planning prose. This
+   does mean `/wiki` needs manual upkeep alongside `/KB` (e.g. Roadmap.md's phase-status
+   table) — there is no automation that regenerates wiki content from `/KB`, only automation
+   that mirrors whatever's currently in `/wiki` to the live site. Recorded explicitly in both
+   `KB/README.md` and `wiki/README.md` so this isn't mistaken for full automation later.
+3. **Sync workflow triggers on push to `main` touching `wiki/**`, not on every branch.**
+   Keeps the live wiki reflecting shipped (merged) state only, avoids feature branches racing
+   to overwrite it. `workflow_dispatch` also enabled for a manual re-run (useful after fixing
+   the auth setup in point 4 without needing a throwaway commit).
+4. **Flagged, not hidden: wiki push auth is a known GitHub Actions rough edge.** The default
+   `GITHUB_TOKEN` does not reliably get write access to a repo's wiki git repository — this
+   is a widely reported limitation of GitHub's permission model, not something specific to
+   this repo, and not something worth asserting false confidence about. The workflow prefers
+   a `WIKI_SYNC_TOKEN` repository secret (a classic PAT with `repo` scope) and falls back to
+   `GITHUB_TOKEN`; if the fallback doesn't have access, the fix is adding that secret. This
+   is documented in a comment block at the top of the workflow file itself, so it's visible
+   exactly where it'd be needed, not only here.
+5. **One-time manual setup this workflow cannot do itself**: the repo's Wiki feature must be
+   enabled (Settings -> Features -> Wikis), and the wiki git repo must be initialized by
+   creating one page through the web UI before the very first sync can push to it — GitHub
+   does not create `<repo>.wiki.git` until that happens. No API/token available in this
+   session to do this step remotely; it's the user's to complete once. Also noted in the
+   workflow file's header comment.
+
+**Work completed this session**:
+- Created branch `wiki-pages` off `main` (post-merge of PR #1).
+- Added `/wiki`: `README.md` (authoring rules, explicitly: edit here not in the live wiki UI,
+  since direct wiki edits get overwritten by the next sync), `Home.md`, `Roadmap.md`,
+  `Architecture.md` (includes the system overview diagram from `KB/system-design.md` §1a),
+  `Admin-Guide.md`, `_Sidebar.md`, `_Footer.md`.
+- Added `.github/workflows/sync-wiki.yml`.
+- Updated `KB/README.md` with a "Relationship to `/wiki`" section.
+- Appended this entry.
+
+**Open items carried forward**: same content checklist as prior entries, plus — the user
+still needs to complete the two manual GitHub setup steps in point 5 above before the sync
+workflow's first run will succeed. No `gh` CLI or GitHub API token is available in this
+environment (also true when PR #1 was raised — that PR was opened by hand from a link this
+assistant provided, not by any tool call), so neither the Wiki-enable toggle nor the
+first-page bootstrap can be done on the user's behalf; both are one-time actions in the
+GitHub web UI.
+
+**Not yet started**: still no application code. This entry only adds repo tooling/docs
+infrastructure; Phase 1 of plan.md (Next.js scaffold) is still the next product step.
