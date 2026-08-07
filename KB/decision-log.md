@@ -386,3 +386,90 @@ needs to do once, at which point the deploy-skeleton half of Phase 1's goal is m
 
 **Next branches**: Supabase data layer (schema + RLS migrations + typed client), then the
 theme toggle. Public sections come in Phase 2.
+
+---
+
+## 2026-08-08 — Supabase data layer (branch `feat/supabase-data-layer`)
+
+**Context**: PR #4 (scaffold) merged. Second implementation branch: the Postgres schema, RLS
+policies, typed clients, and validation schemas. Continues Phase 1.
+
+**CI observations from the merged scaffold** (worth recording, since they validate or correct
+earlier assumptions):
+- CI passed on `feat/project-scaffold` and on `main`.
+- The **wiki sync workflow's earlier failure was stale** — it failed once at 18:50 on
+  2026-08-07 with `repository 'home.wiki' not found`, before the user had created the first
+  wiki page. The two runs after that (19:18, 20:01) both succeeded. Notably it worked with
+  the default `GITHUB_TOKEN`; the `WIKI_SYNC_TOKEN` fallback flagged on 2026-08-08 was not
+  needed. That earlier caveat can be treated as resolved unless it recurs.
+- **Dependabot PR #7 fails CI**: `typescript-eslint does not support TS 7.0`. Root cause is a
+  flaw in the `dependabot.yml` written on 2026-08-08 — the `dev-dependencies` group has no
+  `update-types` restriction, so *major* bumps get batched into it, and TypeScript 7 is
+  ahead of what typescript-eslint supports. The production group was correctly limited to
+  minor/patch; dev was not. Fix is to add the same restriction so majors arrive as individual
+  reviewable PRs. Not done on this branch to keep it scoped — flagged to the user as a
+  separate small change.
+
+**Decisions made**:
+1. **Authorization via an `admin_allowlist` table + `public.is_admin()`**, rather than
+   hardcoding the admin email into each policy. Changing the admin becomes a one-row update
+   instead of a schema migration. The table has RLS enabled with **zero policies**, which
+   makes it completely unreachable through PostgREST — deliberate, because an attacker who
+   could insert their own address there would own every write path on the site.
+2. **`is_admin()` is `security definer` with `search_path` pinned to `''`** and every object
+   schema-qualified. It needs definer rights to read the allow-list that clients cannot, and
+   an unpinned search path is the standard way such functions get hijacked. Fails closed for
+   anonymous requests, where `auth.jwt()` is null.
+3. **Two independent authorization layers, not one.** `anon` is granted `select` only and is
+   never granted insert/update/delete on any table; policies then additionally require
+   `is_admin()`. A policy bug alone cannot produce an anonymous write, because the privilege
+   is absent. This goes beyond what security.md §4.1 specified and is now documented in
+   system-design.md §5.
+4. **Policies written out explicitly per table per operation** (16 of them) rather than
+   generated in a `DO` loop or collapsed into `for all`. Verbose on purpose — security.md
+   §4.1 rule 2 asks for configuration that is reviewable at a glance, and a loop is not.
+5. **URL/slug/date rules enforced in the database as CHECK constraints, and mirrored in Zod.**
+   The `~* '^https?://'` constraints implement security.md §3.2's `javascript:` URI defense
+   at the layer that cannot be bypassed; the Zod copy exists to turn a would-be PostgREST 400
+   into a readable field error. Duplication is intentional and noted in both files.
+6. **Env vars read lazily inside a function, not validated at module scope.** CI builds
+   without Supabase credentials; a module-level throw would have failed every PR before any
+   query existed. Verified: `npm run build` succeeds with no Supabase env set. **This becomes
+   a real question in Phase 2**, when pages actually query at build time — CI will then either
+   need the credentials or the pages will need to tolerate their absence. Flagging now rather
+   than discovering it mid-phase.
+7. **`to*Insert` helper functions as compile-time drift guards.** They are identity functions
+   at runtime; their only job is the type annotation, which fails to compile if a Zod schema
+   drifts out of shape with its table.
+8. **DB types hand-written** rather than generated, since there is no project to generate
+   against yet. `supabase gen types typescript` can replace the file once one exists — noted
+   at the top of `types.ts`.
+9. **Seed data included in this branch** even though plan.md assigns seeding to Phase 2. The
+   RLS ritual needs rows to attempt UPDATE/DELETE against — an empty table cannot demonstrate
+   that a write was *refused* rather than simply finding nothing to change. Seeding is
+   therefore a prerequisite of this branch's own security gate, not Phase 2 work pulled
+   forward.
+
+**Verification performed**: `npm run lint`, `npm run typecheck`, and `npm run build` all pass.
+The drift guard in decision 7 was tested rather than assumed — deliberately renaming
+`title` to `titel` in the project schema produced the expected compile error naming the
+mismatch, and the file was restored and re-verified clean.
+
+**NOT verified, and this matters**: neither Docker nor a local Postgres is available in this
+environment, so **the migration SQL has never been executed and the RLS policies have never
+been exercised**. The schema is written from the design and reviewed by eye; it is not
+tested. The first real test is the user applying it to a Supabase project and running the
+RLS ritual, which is why `supabase/README.md` spells that out with copy-pasteable `curl`
+commands rather than leaving it as a reference to security.md. Treat the Phase 1/2 RLS gate
+as **open** until that ritual has actually been run and passed.
+
+**Work completed**: `supabase/migrations/0001_content_schema.sql` (4 content tables +
+allow-list, constraints, `updated_at` triggers, grants, 16 RLS policies),
+`supabase/seed.sql`, `supabase/README.md` (setup + the RLS ritual as runnable commands),
+`src/lib/supabase/{types,env,client,server}.ts`, `src/lib/schemas.ts`, `.env.example`
+updated to active Supabase vars, system-design.md §5 rewritten to match what was actually
+built, and this entry.
+
+**Open items**: user must create the Supabase project, apply the migration and seed, replace
+the placeholder allow-list email, and run the RLS ritual. Plus the still-outstanding repo
+settings from the previous entry (secret scanning, CodeQL) and the Vercel connection.
