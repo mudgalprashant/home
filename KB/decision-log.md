@@ -802,3 +802,108 @@ a major is safe; CI does that, and CI did. The gap was that its verdict was not 
 require a PR and require the `verify` check to pass. It is the control that turns "CI is
 green before merge" from a habit into a guarantee, and this incident is precisely what it
 prevents.
+
+---
+
+## 2026-08-08 — Real content seeded from CV; asset URL validation fixed (`feat/real-content`)
+
+**Context**: User supplied their CV and a photograph, and asked that placeholders be used
+wherever content is missing. Branched from `fix/restore-eslint-9` rather than `main`, because
+`main` currently fails lint — **this PR should merge after #16.**
+
+**Content decisions** (all reviewable and editable once the admin panel exists):
+
+1. **Phone number deliberately omitted.** The CV carries one; a phone number on a public page
+   is scraped within days and cannot be un-published. Recruiters have the contact form and
+   LinkedIn. Verified absent from the rendered HTML.
+2. **Email stored but never published.** `contact_email` is set in the profile row but is not
+   in any public `select` (src/lib/content.ts), so it cannot reach the browser. Verified: zero
+   occurrences in the served HTML.
+3. **Projects synthesised from work achievements.** The CV has no standalone projects section,
+   but Projects is the section doing the most work on a portfolio (plan.md §3). Three
+   substantial pieces of Nuclei work were reframed as project cards — Merchant Marketplace
+   flight booking, the Fedmobile migration, the Strapi content platform — plus the genuine
+   Virtual Walkathon side project. `source_url` is null throughout, because the work is
+   proprietary and linking somewhere unrelated would be worse than linking nowhere. **This is a
+   judgement call and is flagged as TODO(owner) in the seed file.**
+4. **Bio drafted from CV facts**, marked TODO(owner) to rewrite in their own voice — it is the
+   first thing a recruiter reads, and it should not be in an assistant's register.
+5. **Education and accomplishments have nowhere to live.** There are no tables for them, and
+   plan.md §3's information architecture never included such sections. Rather than unilaterally
+   adding schema, the strongest signals (gold medal, CGPA, HashCode global rank 527) were
+   folded into the bio. If dedicated sections are wanted, that is a migration plus new admin
+   CRUD — cheapest to decide before Phase 3 builds the admin forms.
+6. **GitHub URL inferred** as `github.com/mudgalprashant` from this repository's own remote —
+   the CV does not list one. LinkedIn is marked TODO(owner): the CV hyperlinks the word
+   "LinkedIn" but the underlying URL was not in the text received.
+
+**Bug fixed — asset URLs could not reference files in `public/`.** Migration 0001 constrained
+`github_url` and `linkedin_url` to `^https?://` but left `resume_url` and `avatar_url`
+unconstrained, while `src/lib/schemas.ts` required absolute URLs for all four. So a resume
+committed to `public/resume.pdf` could be stored by the database but **rejected by the admin
+form** — a mismatch that would only have surfaced when the user first tried to save one.
+
+Both layers now accept an absolute http(s) URL *or* a site-relative path, via new migration
+`0002_asset_url_constraints.sql` and a new `assetUrl` schema. The pattern
+`^(https?://|/(?!/))` is deliberate: `/resume.pdf` passes, while `//evil.com` — which browsers
+resolve to an external origin despite looking local — does not. Tested against eight inputs
+including protocol-relative, `javascript:`, `data:`, and backslash variants; all behaved
+correctly.
+
+**Verification**: lint, typecheck, and build pass with no Supabase env. Built and served
+against a mock PostgREST loaded with the real seed data: every field rendered, date ranges
+formatted correctly ("Oct 2025 — Present", "Jul 2022 — Sep 2025", "May 2021 — Jul 2021"), and
+both the email and phone number confirmed absent from the HTML.
+
+**Assets still outstanding**: the resume PDF and a square headshot. Binaries cannot pass
+through a chat transcript, so the handover is for the owner to commit them to `public/` and
+say so. The photograph supplied is a landscape scenic image — good as a hero or OG background,
+but not croppable into an avatar, so it was not wired in. Recorded in runbook.md §2.
+
+**Also noted for the owner**: the CV misspells "Claude" as "Calude" in the first SDE-II bullet.
+Corrected in the seed text; worth fixing in the PDF before it goes to recruiters.
+
+---
+
+## 2026-08-08 — Avatar and resume assets wired in (`feat/real-content`, cont.)
+
+**Context**: Owner placed `resume.pdf` and a 2816×1536 `image.png` in `public/` and asked for
+the image to be cropped, noting it is placeholder imagery rather than a real photograph.
+
+**Work done**:
+1. **Avatar produced from the landscape source.** Cropped a full-height 1536×1536 square with
+   its left edge at x=1105, chosen so the hiker sits near the centre — the hero applies a
+   circular mask, and a subject near an edge gets clipped by it. Downscaled to 800×800, JPEG
+   quality 82. Result: 6.7 MB → 124 KB. Exact commands recorded in runbook.md §2.
+   - **The first attempt got it wrong and was caught by looking at the output.**
+     `sips --cropOffset` treats its second argument as the crop window's absolute left edge,
+     not an offset from centre. The initial value put the hiker hard against the right edge,
+     where the circular mask would have cut him in half. Reading the rendered JPEG back showed
+     it immediately; recomputing the origin fixed it. Worth remembering that image work cannot
+     be verified by reasoning about coordinates alone.
+2. **The 6.7 MB PNG source was deliberately not committed.** Everything in `public/` is
+   publicly downloadable, and a file that size would be in git history permanently. The derived
+   124 KB image is what the site needs. Flagged to the owner rather than done silently.
+3. **Avatar rendering added to the hero** via `next/image`, with `alt=""` — the name it
+   illustrates is in the adjacent `<h1>`, so a description would only make a screen reader
+   repeat itself. `priority` set because it is above the fold.
+4. **`images.remotePatterns` configured for `*.supabase.co`.** `avatar_url` accepts either a
+   site-relative path or an absolute URL, and Storage is where uploads will land in Phase 3.
+   Scoped to that single host rather than a wildcard: an open image host lets anyone route
+   traffic through this site's optimizer. Matches the CSP `img-src` directive in the same file.
+
+**Verification**: lint, typecheck, build pass. Served the production build against the mock and
+confirmed the `<img>` renders with a responsive `srcSet`, both assets serve (`/avatar.jpg` 200
+image/jpeg, `/resume.pdf` 200 application/pdf), and the optimizer returns WebP — 124 KB JPEG
+down to **7.3 KB** at 256px.
+
+**A stale build cache briefly hid the change.** The avatar did not appear in the served HTML
+until `.next` was removed and the project rebuilt, despite the component and data both being
+correct. Noting it because the symptom — verified-correct code producing output that does not
+contain it — is easy to misdiagnose as a data problem. When output contradicts source, clear
+`.next` before investigating further.
+
+**Privacy note carried forward**: the resume PDF contains the phone number and email that were
+deliberately kept off the rendered page, and it is publicly downloadable. Normal for a
+portfolio and possibly intended, but it partially undoes that omission, so it should be a
+decision rather than an accident.

@@ -101,11 +101,40 @@ Drop files into `public/` and tell me the filenames, or hand them over however y
 I only need to know what exists and where. **None of these block current work**; the site
 renders without them.
 
-| Asset | Format & size | Used for | Needed by |
+Binary files cannot be handed over through a chat transcript. **Commit them into `public/`
+yourself and say what you added** — that is the whole handover.
+
+| Asset | Format & size | Committed at | Status |
 |---|---|---|---|
-| Profile photo | Square, ≥ 800×800, JPG or PNG | Hero section, OG preview image | Phase 5 |
-| Favicon source | 512×512 PNG or an SVG | Browser tab icon, `manifest.json` | Phase 5 |
-| Resume PDF | PDF, ideally < 2 MB | `/resume` download | Phase 2 (resume route) |
+| Resume PDF | PDF, ideally < 2 MB | `public/resume.pdf` | **Done** — 56 KB, 1 page |
+| Profile photo | Square, ≥ 800×800 | `public/avatar.jpg` | **Done** — 800×800, 124 KB, cropped from the supplied landscape source. Placeholder imagery; swap for a real headshot when there is one |
+| Favicon source | 512×512 PNG or an SVG | `public/` | Outstanding, needed by Phase 5 |
+
+**How the avatar was produced**, in case it needs redoing: the source was a 2816×1536 landscape
+photograph. A full-height 1536×1536 square was cropped with its left edge at x=1105 so the
+hiker sits near the centre rather than at an edge — an off-centre subject gets clipped by the
+circular mask the hero applies. That was then downscaled to 800×800 and saved as JPEG at
+quality 82.
+
+```bash
+sips -c 1536 1536 --cropOffset 0 1105 source.png --out crop.png
+sips -Z 800 crop.png --out public/avatar.jpg -s format jpeg -s formatOptions 82
+```
+
+The 6.7 MB PNG source was **not** committed. Anything in `public/` is publicly downloadable,
+and a file that size would sit in git history permanently; the 124 KB derived image is what the
+site actually needs. Keep the original somewhere outside the repo if you want it.
+
+Once a file is committed, its value in the database is the site-relative path — `/resume.pdf`,
+`/avatar.jpg`. Migration 0002 and `assetUrl` in `src/lib/schemas.ts` both accept that form
+alongside absolute URLs, so a file in `public/` and a file in Supabase Storage are equally
+valid.
+
+**On the landscape photo**: a wide scenic image cannot be cropped into a square avatar without
+losing the subject, so it is not wired in as one. It *would* work well as a hero background or
+as the backdrop for the generated OG preview image in Phase 5 — say the word if you want it
+used that way. A separate square headshot is still the better choice for the avatar slot,
+since that is what a recruiter scanning the page expects to see.
 
 Two open questions on assets:
 
