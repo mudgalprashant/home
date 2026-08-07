@@ -8,7 +8,7 @@ import { site } from "@/lib/site";
  */
 export function Footer() {
   return (
-    <footer className="border-t border-border">
+    <footer className="border-t border-border print:hidden">
       <div className="mx-auto flex max-w-3xl flex-col gap-1 px-6 py-8">
         {/*
           No year here on purpose. This page is statically prerendered, so

@@ -19,7 +19,7 @@ export const navSections = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-sm print:hidden">
       <div className="mx-auto flex h-14 max-w-3xl items-center gap-4 px-6">
         <Link
           href="/"

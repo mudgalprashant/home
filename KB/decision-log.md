@@ -907,3 +907,54 @@ contain it — is easy to misdiagnose as a data problem. When output contradicts
 deliberately kept off the rendered page, and it is publicly downloadable. Normal for a
 portfolio and possibly intended, but it partially undoes that omission, so it should be a
 decision rather than an accident.
+
+---
+
+## 2026-08-08 — Resume route; Phase 2 code complete (`feat/resume-route`)
+
+**Context**: PRs #16 and #17 merged. `main` re-verified from a clean `npm ci` — lint,
+typecheck, build, and audit all pass, and both assets are present. This branch adds the last
+outstanding Phase 2 item.
+
+**Work done**:
+1. **`/resume`** — a printable resume rendered from the same database content as the home
+   page, so the two cannot drift apart. ISR at the same 1h backstop. Renders summary,
+   experience with date ranges and highlights, and skills.
+2. **Print handling.** Site chrome (header, footer) and the page's own toolbar carry
+   `print:hidden`, so paper output starts at the name rather than repeating navigation. A
+   `@media print` block forces the palette back to black-on-white: browsers drop background
+   colours when printing, so a reader on the dark theme would otherwise have printed pale grey
+   on white. Verified both rules are present in the compiled CSS, not just the source.
+   `break-inside-avoid` on each role stops a job being split across a page boundary.
+3. **Deliberately no rule appending `href` values after links in print.** It is a common print
+   idiom, but the only external links on this page already display their URL as the link text,
+   so it would have printed each one twice.
+4. **Contact section now links to `/resume`, not straight to the PDF** — the page opens in
+   place, reads on a phone, and offers the download from there. Rendered with `next/link` and
+   no `target="_blank"`, since it is same-origin and should navigate client-side rather than
+   spawn a tab. The section's placeholder branch became dead code once Resume was always
+   present, so the component was rewritten rather than left with an unreachable path.
+
+**Known limitation, stated rather than hidden**: the printable page renders only what the
+schema holds — profile, experience, skills. There are no tables for education or awards, so
+the gold medal, CGPA, and HashCode ranking appear in the downloadable PDF but not on `/resume`.
+Adding them is a migration plus admin CRUD, and remains the open decision flagged on
+2026-08-08. A comment at the top of the route records this so the gap is not mistaken for a
+bug.
+
+**Verification**: lint, typecheck, build pass; `/resume` builds as a static ISR route. Served
+against the mock and confirmed: HTTP 200, all content sections render, title is
+"Resume · Prashant Mudgal", the download button points at `/resume.pdf`, the home page links
+to `/resume`, and the contact email and phone number are absent from the page.
+
+*(A `grep -c` briefly suggested only one of the three `print:hidden` classes had applied. It
+had not — `grep -c` counts matching lines and the HTML is a single line. Measurement error,
+not a defect; noted because it nearly sent me debugging working code.)*
+
+**Phase 2 status: code complete, phase NOT closed.** Both remaining items need the owner, not
+more code:
+- **RLS read-path verification** (security.md §5.2) cannot run until Supabase is provisioned.
+  The migrations have still never been executed anywhere.
+- **CSP is Report-Only** and needs a browser console check before being switched to enforcing.
+
+plan.md and wiki/Roadmap.md updated to say exactly this, rather than marking the phase done.

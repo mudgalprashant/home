@@ -59,6 +59,30 @@ body {
   font-family: var(--font-sans-variable), ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+ * Print.
+ *
+ * Browsers drop background colours when printing, so a dark-theme page would
+ * otherwise print pale-grey text on white and be close to unreadable. Forcing
+ * the palette back to black-on-white means the printed resume looks the same
+ * whichever theme the reader happened to be using.
+ */
+@media print {
+  :root,
+  :root[data-theme="dark"] {
+    --background: #ffffff;
+    --surface: #ffffff;
+    --foreground: #000000;
+    --muted: #333333;
+    --border: #cccccc;
+    --accent: #000000;
+  }
+
+  /* No rule appending href values after links: the only external links on the
+     printable page already show their URL as the link text, so it would print
+     each one twice. */
+}
+
 /* Respect an OS-level reduced-motion preference globally, so no individual
    component has to remember to (KB/plan.md §4). */
 @media (prefers-reduced-motion: reduce) {
