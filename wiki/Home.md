@@ -7,6 +7,7 @@ Start here:
 
 - [Roadmap](Roadmap.md) — goals, phases, and current status
 - [Architecture](Architecture.md) — stack, data flow, and system diagrams
+- [Security](Security.md) — threat model, attack entry points, and how they're verified
 - [Admin Guide](Admin-Guide.md) — how content is added and updated without a code change
 
 ## Quick facts

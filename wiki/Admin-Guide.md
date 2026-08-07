@@ -12,7 +12,8 @@ with real steps/screenshots once the admin panel is built (Phase 3 — see
 - Not being linked is a UX choice, not the security boundary. The real security is
   authentication (Supabase Auth) plus a database-level check that only one allow-listed
   email can ever write data — both enforced independently, so a leaked URL alone grants
-  nothing. Full reasoning in `/KB/system-design.md` §7.
+  nothing. See [Security](Security.md) for the full model, or `/KB/security.md` for the
+  complete threat model and verification steps.
 
 ## What it manages
 

@@ -140,7 +140,15 @@ with nothing to show.
 - [x] Define goals, IA, and interactivity scope (this doc)
 - [x] Write system design: architecture, folder structure, data model, deployment
 - [x] Fold in dynamic content + admin panel requirement (2026-08-07 revision)
+- [x] Document security model: threat model, attack entry points, dev rules, vuln checks
+      ([security.md](./security.md), 2026-08-08)
 - [ ] User reviews and signs off on plan + system design
+
+Each phase below carries a **security gate** — the corresponding row in
+[security.md](./security.md) §6 must pass before the phase counts as done. Security is
+built in per phase rather than audited at the end, because the expensive mistakes here
+(RLS misconfiguration, a publicly-reachable preview of the admin panel) are foundational
+and cheap to prevent but costly to retrofit.
 
 ### Phase 1 — Scaffold, deploy skeleton, data layer
 - Next.js app scaffolded, deployed to Vercel, custom domain wired (if provided)
@@ -148,6 +156,8 @@ with nothing to show.
   tables), Auth configured, environment variables wired into Vercel
 - Base layout, theme system (light/dark), font loading, empty section shells
 - CI: GitHub Actions running lint + typecheck + build on every PR
+- **Security gate**: RLS enabled in every table-creating migration; `.env.local` git-ignored
+  from the first commit; Dependabot, secret scanning, and `npm audit` active in CI
 - Goal: a live, blank-but-branded URL exists, backed by a real (empty/seeded) database —
   deployment and data-layer risk both retired on day one
 
@@ -156,6 +166,8 @@ with nothing to show.
 - All public sections built and fetching from the database (via typed server-side queries),
   fully responsive
 - Resume route + printable/PDF export working
+- **Security gate**: RLS read-path verification passes (security.md §5.2); `curl` of every
+  public page confirms no private fields leak into the RSC payload; CSP headers set
 - Goal: the whole public site exists and reads correctly, sourced from real infrastructure,
   just with placeholder copy
 
@@ -165,38 +177,51 @@ with nothing to show.
 - Login page, session handling, logout
 - CRUD forms for profile, experience, projects, skills — server actions writing to Supabase,
   triggering on-demand revalidation so public pages update immediately after a save
+- **Security gate** (the heaviest one — see security.md §6): full RLS ritual including the
+  non-allow-listed-account case; every Server Action has an auth guard + Zod validation; the
+  Postman Test passes on every write path; Vercel preview-deployment exposure resolved
 - Goal: owner can add a real project end-to-end through the UI and see it live within seconds
 
 ### Phase 4 — Interactivity & polish (public site)
 - Scroll animations, command palette, active-section nav, hover micro-interactions
 - Accessibility pass (keyboard nav, focus states, contrast, reduced-motion support)
 - Performance pass (Lighthouse ≥ 95 across the board, image optimization, font subsetting)
+- **Security gate**: no client-side hiding introduced as a substitute for access control;
+  any newly added dependency reviewed
 
 ### Phase 5 — Social preview & SEO layer
 - Dynamic OG image generation per route, Twitter Card + JSON-LD, sitemap.xml (admin route
   excluded), robots.txt
 - Validate previews on LinkedIn/Twitter/Facebook debuggers, fix anything that renders wrong
 - Favicon set, `manifest.json` for "add to home screen" polish
+- **Security gate**: `/admin` confirmed `noindex` and absent from the live sitemap
 
 ### Phase 6 — Live content entry
 - User logs into the admin panel and replaces placeholder content with real bio/projects/
   experience/links (see checklist in section 2) — no code changes required, this is the
   whole point of Phase 3
 - Contact form wired to a real destination email, spam protection verified
+- **Security gate**: no real credentials committed to git; admin allow-list email confirmed
 
 ### Phase 7 — Launch & feedback loop
 - Final cross-browser/cross-device check, analytics wired (privacy-friendly, free tier)
 - Share the real URL, collect feedback, iterate
+- **Security gate**: full pre-launch checklist (security.md §5.3) plus a securityheaders.com
+  scan and a final RLS ritual
 
 ## 7. Definition of done (per phase and overall)
 
 A phase is done when: it builds with zero errors/warnings, passes Lighthouse ≥ 90 (all
-categories) at minimum, works on mobile viewport, and is deployed to a reachable preview URL.
+categories) at minimum, works on mobile viewport, is deployed to a reachable preview URL,
+and clears that phase's security gate ([security.md](./security.md) §6).
 
 The admin panel specifically is done when: it cannot be reached without authentication under
 any circumstance (verified by attempting direct access while logged out), a save action is
-reflected on the public site within a few seconds without a manual redeploy, and it is
-unreachable from any public navigation, sitemap, or search index.
+reflected on the public site within a few seconds without a manual redeploy, it is
+unreachable from any public navigation, sitemap, or search index, and — the test that
+actually matters — **no write succeeds when attempted from Postman without a valid
+allow-listed session**, because that verifies the database is enforcing access control rather
+than the user interface merely hiding it.
 
 The project is "amaze-a-recruiter" done when: page loads in under ~1.5s on a cold visit,
 every social preview renders correctly, keyboard-only navigation works end to end, a person

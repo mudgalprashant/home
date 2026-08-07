@@ -464,8 +464,17 @@ undo than a code deploy.
 
 ## 11. Security & abuse surface
 
+> **Full detail lives in [security.md](./security.md)** — threat model, per-entry-point
+> attack/defense tables (DevTools, URL manipulation, Postman/direct API, forms, uploads),
+> development rules, the RLS verification ritual, and per-phase security gates. The summary
+> below is the architectural view; that doc is what to follow while writing code.
+
 - **Admin auth**: see section 7 in full — this is the highest-stakes surface on the site and
   is treated accordingly (real auth, RLS-enforced authorization, no shared secrets).
+- **RLS is the actual boundary**: the Supabase anon key ships in the client bundle by design
+  and is trivially extractable, so the database's row-level-security policies — not the
+  application code, and not the UI — are what prevent unauthorized writes. Anything reachable
+  from the app is equally reachable from Postman (security.md §3.3).
 - **Environment variables**: Supabase URL + anon key (public by design), stored as Vercel env
   vars regardless (not hardcoded) so they can be rotated without a code change. No
   service-role key used (section 7.6).

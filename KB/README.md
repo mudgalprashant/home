@@ -11,7 +11,11 @@ hosted entirely on free tools. Read the files in this order.
 2. [system-design.md](./system-design.md) — tech stack, directory structure, content data
    model, social-preview/OG image strategy, performance/security architecture. Read this for
    *how* it's built.
-3. [decision-log.md](./decision-log.md) — chronological record of decisions and completed
+3. [security.md](./security.md) — threat model, attack entry points (DevTools, URL,
+   Postman/direct API, forms, uploads), development rules, vulnerability checks, and
+   per-phase security gates. Read this *before writing code*, not after — it expands
+   system-design.md §7 and §11 into rules meant to be followed during development.
+4. [decision-log.md](./decision-log.md) — chronological record of decisions and completed
    work. Append-only. Read this last to see what's actually been done vs. just planned, and
    to catch any decision that later got revised.
 
@@ -40,5 +44,8 @@ rules.
   this even for "small" decisions; the log is only useful if it's complete.
 - Keep plan.md and system-design.md current — they describe the *present* intended state,
   not history. History belongs in decision-log.md.
-- No code exists yet as of 2026-08-07. See decision-log.md's latest entry for exactly what
+- When writing application code, follow security.md's development rules (§4) as you go, and
+  clear that phase's security gate (§6) before calling the phase done. Retrofitting these is
+  much more expensive than following them the first time.
+- No code exists yet as of 2026-08-08. See decision-log.md's latest entry for exactly what
   state the project is in and what the next step is.
