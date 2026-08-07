@@ -556,3 +556,52 @@ document and the tested logic. Worth a manual check on the Vercel preview.
 
 **Still open**: the `dependabot.yml` dev-dependencies group still batches major bumps (see the
 previous entry); PR #7 remains red. Not fixed here to keep this branch scoped.
+
+---
+
+## 2026-08-08 — Fixes: Dependabot major grouping, static footer year (`fix/dependabot-major-grouping`)
+
+**Context**: PR #9 merged. Clearing the two outstanding defects before starting Phase 2.
+
+**Fix 1 — Dependabot batched three unrelated majors into one PR.**
+Inspecting PR #7's diff showed it bumping `typescript` 5→7, `eslint` 9→10, and `@types/node`
+20→26 *together*. CI failed on `typescript-eslint does not support TS 7.0`, and because they
+were grouped there was no way to take the safe parts. Root cause was in the `dependabot.yml`
+written on 2026-08-08: the production group was correctly limited to minor/patch, but the
+dev-dependencies group had no `update-types` restriction, so majors fell into it.
+
+- **Both groups now restricted to minor/patch.** Majors arrive as individual PRs that can be
+  evaluated and tested on their own merits. Security advisories are unaffected — they are
+  always raised individually and ignore grouping entirely.
+- **Added a scoped `ignore` for TypeScript majors only.** Without it Dependabot re-raises the
+  same known-broken PR every week. This is deliberately narrow: `eslint` 10 and
+  `@types/node` 26 are *not* ignored, because they have not been shown to break anything and
+  should be judged by CI on their own. The ignore carries an explicit removal condition
+  ("remove once typescript-eslint ships TS 7 support") so it reads as a temporary block on a
+  known incompatibility rather than a standing policy of skipping TypeScript majors.
+
+**Fix 2 — Footer year was frozen at build time.**
+`new Date().getFullYear()` in the footer looked harmless, but the home page is statically
+prerendered, so the value is evaluated during `next build` and baked into the HTML. Confirmed
+by grepping the served output: the literal string `2026` was present. The site would have
+displayed "© 2026" throughout 2027 until something happened to trigger a redeploy — a stale
+detail on a page whose entire purpose is looking current to a recruiter.
+
+Considered rendering it client-side and rejected that: it means shipping JavaScript and
+risking a hydration mismatch for a line nobody reads. **The year is simply omitted** —
+`© Prashant Mudgal` is correct in every year. A comment records the reasoning so it does not
+get "helpfully" re-added.
+
+This is a small instance of a general hazard worth remembering for Phase 2: **anything
+time-dependent or request-dependent in a statically prerendered component is frozen at build
+time.** Relative dates ("2 years experience"), "last updated" stamps, and anything derived
+from `Date` will all have this property once real content lands.
+
+**Verification**: `dependabot.yml` parsed and its structure asserted (both groups restricted,
+ignore rule shaped correctly). Lint, typecheck, and build pass. Production server served and
+the rendered HTML confirmed to contain zero occurrences of `2026`.
+
+**Recommended alongside this PR**: merge Dependabot PRs **#5** (actions/checkout 4→7) and
+**#6** (actions/setup-node 4→7) — both green, and they also clear the "Node.js 20 is
+deprecated" warnings appearing in every CI run. Close **#7** as superseded; its individual
+components will return as separate PRs under the corrected config.
