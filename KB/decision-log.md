@@ -304,3 +304,85 @@ this entry blocks Phase 1.
 
 **Not yet started**: still no application code. Phase 1 of plan.md remains the next product
 step — now with a defined security gate attached to it.
+
+---
+
+## 2026-08-08 — Phase 1 begins: project scaffold, CI, security baseline
+
+**Context**: `security-docs` merged (PR #3). User asked to start implementation, with a new
+branch per feature/component and a PR for review each time. This is the first code in the
+repo — branch `feat/project-scaffold`.
+
+**Scope decision**: Phase 1 in plan.md bundles four things (scaffold, Supabase data layer,
+theme system, CI). Split into separate branches per the user's one-branch-per-feature
+request rather than one large PR. This branch is the foundation everything else needs:
+scaffold + CI + security baseline. Supabase and the theme toggle follow as their own
+branches, so Phase 1 stays "in progress" until those land.
+
+**Versions installed** (scaffolded via `create-next-app`, so these are current-latest rather
+than chosen individually): Next.js 16.3.0, React 19.2.8, TypeScript 5, Tailwind CSS v4,
+ESLint 9. system-design.md §2 specified "Next.js 14+", so 16 is consistent with the plan —
+noting the exact versions here because "14+" won't tell a future reader what actually shipped.
+Tailwind v4 configures through CSS (`@theme inline` in `globals.css`) rather than a
+`tailwind.config.js`, which is why no such file exists.
+
+**Decisions made**:
+1. **`src/` directory layout**, diverging from system-design.md §4 which sketched `app/` and
+   `components/` at the repo root. `create-next-app`'s current default is `src/`, and keeping
+   the tool's default avoids fighting future codegen. The structure inside is otherwise as
+   designed. system-design.md §4 should be treated as describing the intended *shape*, not
+   exact paths — worth a small correction pass there when the directories actually get
+   populated in Phase 2, rather than editing it speculatively now.
+2. **Security headers shipped in `next.config.ts`, but deliberately no CSP yet.**
+   `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`,
+   `Permissions-Policy`, and HSTS are set and were verified live against a running server
+   (all five present in the response, and `X-Powered-By` correctly suppressed). CSP is
+   omitted on purpose: Next.js needs either nonce-based CSP via middleware or a permissive
+   `unsafe-inline` fallback, and an untested CSP either breaks the app or gives false
+   assurance. security.md §6 already schedules CSP as a **Phase 2** gate, so this matches the
+   plan rather than deferring something that was due now. Reasoning is in a comment at the
+   top of `next.config.ts` so the omission doesn't read as an oversight.
+3. **`.gitignore` uses `.env*` with an `!.env.example` exception.** The scaffold's default
+   ignores all env files including the example; the negation lets the placeholder template be
+   committed while real values stay out (security.md §4.3 rules 10-11).
+4. **`.env.example` documents the service-role-key prohibition inline**, not just in KB. The
+   most likely moment someone adds one is while filling in env vars, so the warning belongs
+   where they'll be looking.
+5. **`typecheck` script is `next typegen && tsc --noEmit`.** Next 16 generates global types
+   (`LayoutProps`, `PageProps`) into `.next/types`, so a bare `tsc --noEmit` fails on a clean
+   checkout — which is exactly what CI does. Running typegen first makes the script
+   order-independent and correct on a fresh clone. Found by actually running it; the failure
+   is silent-until-CI otherwise.
+6. **`npm audit --audit-level=high` blocks CI; moderate and below don't.** Routine advisories
+   in a portfolio's dependency tree shouldn't wedge every open PR — Dependabot reports those
+   instead. Dependabot is configured to group routine updates but security advisories are
+   always raised individually, so grouping doesn't delay real fixes.
+7. **Design tokens defined now, theme toggle deferred.** `globals.css` defines light values
+   on bare `:root`, dark under both `prefers-color-scheme` (guarded so an explicit light
+   choice wins) and `[data-theme="dark"]`. The toggle branch only has to set that attribute.
+   Also added a global `prefers-reduced-motion` reset so no future animated component has to
+   remember it individually (plan.md §4).
+
+**Verification performed** (not assumed): `npm run lint`, `npm run typecheck`, and
+`npm run build` all pass. Production server started on a scratch port and `curl -I` confirmed
+every security header; page body confirmed rendering. `npm audit` reports 0 vulnerabilities
+across 362 packages.
+
+**Phase 1 security gate status** (security.md §6): `.env.local` git-ignored from the first
+commit ✅; `npm audit` in CI ✅; Dependabot configured ✅. **RLS-in-every-migration is not yet
+applicable** — no migrations exist until the Supabase branch, where that gate item gets
+cleared. GitHub secret scanning and CodeQL are repo *settings*, not files, and need enabling
+in the GitHub UI (free for public repos) — carried as an open item below.
+
+**Work completed**: Next.js app scaffolded into the repo (configs, `src/app` layout + page,
+`src/lib/site.ts`), `next.config.ts` with security headers, `.gitignore`, `.env.example`,
+`.github/workflows/ci.yml`, `.github/dependabot.yml`, rewritten root `README.md`, wiki
+Roadmap updated to show Phase 1 in progress, and this entry.
+
+**Open items**: enable GitHub secret scanning + push protection and CodeQL code scanning in
+repo settings (free for public repos; not doable from this environment — no `gh` CLI or API
+token, same constraint as PR creation). Vercel project connection is also a UI step the user
+needs to do once, at which point the deploy-skeleton half of Phase 1's goal is met.
+
+**Next branches**: Supabase data layer (schema + RLS migrations + typed client), then the
+theme toggle. Public sections come in Phase 2.

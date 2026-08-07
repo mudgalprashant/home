@@ -25,7 +25,7 @@ managed through a private admin panel instead of hardcoded into the site.
 | Phase | Focus | Status |
 |---|---|---|
 | 0 | Planning & system design | Done |
-| 1 | Scaffold, deploy skeleton, data layer (Supabase provisioning) | Not started |
+| 1 | Scaffold, deploy skeleton, data layer (Supabase provisioning) | In progress |
 | 2 | Public site against seeded content | Not started |
 | 3 | Admin panel (auth + CRUD) | Not started |
 | 4 | Interactivity & polish | Not started |
@@ -39,6 +39,7 @@ automated).
 
 ## What's next
 
-Phase 1: scaffolding the Next.js app, deploying an empty-but-branded site to Vercel, and
-provisioning the Supabase project (schema + auth). See [Architecture](Architecture.md) for
-how these pieces fit together.
+Phase 1 is underway. The Next.js scaffold, CI pipeline, and security baseline have been
+built; Supabase provisioning (schema, RLS policies, auth) and the theme toggle are the
+remaining pieces before Phase 2 begins. See [Architecture](Architecture.md) for how these
+fit together, and [Security](Security.md) for the gate each phase has to clear.
