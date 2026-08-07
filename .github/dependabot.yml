@@ -41,6 +41,19 @@ updates:
         update-types:
           - version-update:semver-major
 
+      # eslint-config-next 16.3.0 bundles eslint-plugin-react 7.37.5, which uses
+      # the pre-ESLint-10 rule context API. Under ESLint 10 every lint run dies
+      # with "contextOrFilename.getFilename is not a function".
+      #
+      # This is not theoretical: ESLint 10 was merged in PR #11 and broke `main`
+      # until it was reverted here.
+      #
+      # REMOVE THIS once eslint-config-next ships an eslint-plugin-react new
+      # enough for ESLint 10.
+      - dependency-name: eslint
+        update-types:
+          - version-update:semver-major
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

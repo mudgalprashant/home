@@ -754,3 +754,51 @@ comment at the directive itself rather than only here, so whoever adds the form 
 headers confirmed present with correct values; dev server confirmed to omit CSP while keeping
 the baseline headers; script origins confirmed 100% same-origin. **Not verified**: actual
 browser enforcement behaviour — which is precisely why it ships in Report-Only.
+
+---
+
+## 2026-08-08 — `main` broken by ESLint 10; restored (`fix/restore-eslint-9`)
+
+**Context**: User merged all outstanding PRs (#5, #6, #11, #12, #14, #15) and asked for a full
+re-check. The re-check found `main` red.
+
+**What was broken**: `npm run lint` crashed outright —
+`TypeError: Error while loading rule 'react/display-name': contextOrFilename.getFilename is
+not a function`. Cause: `eslint-config-next@16.3.0` bundles `eslint-plugin-react@7.37.5`,
+which uses the pre-ESLint-10 rule context API. ESLint 10 arrived via Dependabot PR #11.
+
+**Two separate failures let it land, and both are worth fixing rather than just the symptom:**
+
+1. **PR #11's CI had failed, and it was merged anyway.** Confirmed via the API: that branch's
+   run concluded `failure`. There is no branch protection on `main` yet — it is step 4 of
+   runbook.md and has not been done. That single setting would have prevented this.
+2. **The intermediate CI runs never completed.** The workflow's `cancel-in-progress: true`
+   cancelled superseded runs on the same ref, so merging six PRs in quick succession meant
+   each merge cancelled the previous one's verification. Only the final run finished — and
+   failed. Every merge in between was effectively unverified. This was a flaw in the CI
+   config written on 2026-08-08, not user error.
+
+**Fixes applied**:
+- **ESLint pinned back to `^9`** (9.39.5). Verified lint passes again.
+- **Dependabot now ignores ESLint majors**, alongside the existing TypeScript ignore, with an
+  explicit removal condition: remove once `eslint-config-next` ships an `eslint-plugin-react`
+  new enough for ESLint 10. Without this the same broken PR returns weekly.
+- **`cancel-in-progress` narrowed to pull requests only**
+  (`${{ github.event_name == 'pull_request' }}`). PR branches still cancel superseded runs,
+  but every push to `main` now runs to completion, so a broken merge cannot hide behind a
+  cancelled run again.
+
+**Verified after the fix**: clean `npm ci` from scratch, then lint, typecheck, build, and
+`npm audit --audit-level=high` all pass. `@types/node` 26 and the `actions/checkout@v7` /
+`actions/setup-node@v7` bumps (PRs #12, #5, #6) are fine and were kept — only ESLint was
+reverted.
+
+**Note on the Dependabot grouping fix from earlier today**: it worked exactly as designed —
+the three majors arrived as separate PRs instead of one batch, which is why `@types/node` 26
+could be kept while ESLint 10 was reverted. The grouping fix was never meant to judge whether
+a major is safe; CI does that, and CI did. The gap was that its verdict was not enforced.
+
+**Recommendation to the user**: enable branch protection on `main` (runbook.md §4) —
+require a PR and require the `verify` check to pass. It is the control that turns "CI is
+green before merge" from a habit into a guarantee, and this incident is precisely what it
+prevents.
