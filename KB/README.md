@@ -15,7 +15,11 @@ hosted entirely on free tools. Read the files in this order.
    Postman/direct API, forms, uploads), development rules, vulnerability checks, and
    per-phase security gates. Read this *before writing code*, not after — it expands
    system-design.md §7 and §11 into rules meant to be followed during development.
-4. [decision-log.md](./decision-log.md) — chronological record of decisions and completed
+4. [runbook.md](./runbook.md) — the owner's operational guide: how secrets are handled and
+   where each one goes, static assets still needed, and step-by-step setup for Supabase,
+   Vercel, and GitHub repository settings. Everything that requires an account or a click in
+   someone else's dashboard.
+5. [decision-log.md](./decision-log.md) — chronological record of decisions and completed
    work. Append-only. Read this last to see what's actually been done vs. just planned, and
    to catch any decision that later got revised.
 
