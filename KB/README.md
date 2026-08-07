@@ -22,6 +22,16 @@ assistants, or picked up by a human reviewer cold — never has to be reconstruc
 scratch. Any change in scope, stack, or design direction gets written here as it happens,
 not left implicit in chat history that won't be available next time.
 
+## Relationship to `/wiki`
+
+The repo also has a [`/wiki`](../wiki/) folder — hand-authored source for the project's
+GitHub Wiki, auto-synced to the live wiki on every push to `main`
+(`.github/workflows/sync-wiki.yml`). It is a shorter, human-readable summary aimed at anyone
+browsing the repo; `/KB` stays the detailed planning source of truth. The two are not
+generated from each other, so a decision recorded here that changes something summarized in
+`/wiki` needs both updated in the same PR — see `/wiki/README.md` for that folder's own
+rules.
+
 ## Working agreement for future sessions (human or AI)
 
 - Before making a structural change (stack, hosting, information architecture), check
