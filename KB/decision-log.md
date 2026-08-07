@@ -605,3 +605,93 @@ the rendered HTML confirmed to contain zero occurrences of `2026`.
 **#6** (actions/setup-node 4→7) — both green, and they also clear the "Node.js 20 is
 deprecated" warnings appearing in every CI run. Close **#7** as superseded; its individual
 components will return as separate PRs under the corrected config.
+
+---
+
+## 2026-08-08 — Phase 2 begins: sections rendered from database (`feat/content-sections`)
+
+**Context**: PR #10 merged. First Phase 2 branch — the public sections now read real content
+from Supabase instead of showing hardcoded placeholder text.
+
+**Unanswered question resolved by decision**: the previous entry asked whether CI should build
+against a real Supabase project (repo secrets) or whether pages should tolerate absent
+credentials. Went with **tolerate absent credentials** — CI stays independent of an external
+service, and the same code path gives the site a sensible empty state if Supabase is ever
+unreachable. Verified: `npm run build` succeeds with no Supabase env set.
+
+**The significant find of this branch — a bug that would have shipped silently.**
+
+The first implementation had `lib/content.ts` reading through `lib/supabase/server.ts`, the
+cookie-bound client. Testing the failure path with deliberately unreachable credentials
+surfaced this in the build log:
+
+```
+[content] failed to load profile: Error: Dynamic server usage: Route / couldn't be
+rendered statically because it used `cookies`
+```
+
+Two compounding faults:
+
+1. **Touching `cookies()` opts the route out of static rendering permanently.** That silently
+   discards ISR and edge caching — the entire performance argument for this architecture
+   (system-design.md §3) — in exchange for a session the public page never needed.
+2. **The `catch` swallowed Next's control-flow exception.** Next signals dynamic-rendering
+   bailouts by *throwing*. Catching it convinced Next the page had rendered fine, so it would
+   have been prerendered **permanently empty** in production. The site would have looked like
+   "no content added yet" forever, with a green build and no error anywhere.
+
+This is precisely the failure mode the file's own comment warned about ("silent empty states
+are how a broken query survives to production"), which is a reminder that documenting a
+hazard is not the same as being immune to it.
+
+**Fixes**:
+- **New `lib/supabase/public.ts`** — a cookie-free anon client for public reads. Public
+  content needs no session; the anon key plus the public `select` RLS policy is exactly the
+  required access level. Pages stay statically renderable. The rule is now explicit in both
+  files: *public reads use `public.ts`; anything involving a logged-in admin uses
+  `server.ts`.*
+- **`rethrowIfFrameworkError()`** — re-throws any error carrying a `digest`, which is how Next
+  signals control flow (dynamic bailout, `notFound`, `redirect`). Catching those changes
+  program behaviour rather than handling a failure.
+
+**Verification performed** (beyond lint/typecheck/build):
+- **Failure path**: built against an unreachable Supabase URL. The `cookies` bailout is gone;
+  failures are now genuine `TypeError: fetch failed`, logged, and the page still prerenders
+  with `Revalidate 1h`.
+- **Happy path**: wrote a mock PostgREST server and built against it, because shipping render
+  code that has never seen data is a gamble. All sections rendered — profile, location,
+  experience with highlights, projects with featured flag and stack tags, skills. Date ranges
+  formatted correctly as "Jan 2023 — Present" and "Jun 2020 — Dec 2022", confirming the UTC
+  parsing avoids the off-by-one-month bug.
+- **Leak check**: made the mock return `contact_email` even though no query selects it. It did
+  **not** appear in the served HTML. The reason turned out to be more specific than expected
+  and is now documented in `content.ts`: **props passed to Server Components are not
+  serialized into the RSC payload — only their rendered output is.** Over-fetching is
+  therefore invisible today, but that protection vanishes the moment a section becomes a
+  Client Component, since client props *are* serialized. Narrowing the `select` is the defence
+  that holds either way, which is why it stays the rule rather than "keep sections on the
+  server".
+
+**Other decisions**:
+1. **`export const revalidate = 3600`** as a backstop only. Phase 3's admin saves will call
+   `revalidatePath('/')` for near-immediate updates; the hourly window just bounds staleness
+   if that ever fails.
+2. **Queries issued with `Promise.all`** — they are independent, and awaiting in sequence
+   would make the page as slow as their sum.
+3. **`lucide-react` 1.x has removed all brand icons** (no `Github`, `Linkedin`, `Twitter`);
+   this broke the build and had to be worked around. Rejected hand-embedding logo SVG paths —
+   with no browser available here, a subtly wrong path would ship looking broken. Used a
+   uniform external-link arrow instead; the text labels already carry the meaning.
+4. **Contact email is never selected for public pages**, so the address cannot reach the
+   client at all. Reaching out will go through the form in Phase 6.
+5. **No duration arithmetic in `formatDateRange`** ("3 years experience" etc.). Same
+   build-time-freezing hazard as the footer year fixed in the previous entry — "Present" is
+   derived from `end_date` being null, which is data-driven and safe.
+
+**Work completed**: `src/lib/content.ts`, `src/lib/supabase/public.ts`, `src/lib/format.ts`,
+`src/components/ui/tag.tsx`, six section components under `src/components/sections/`,
+rewritten `src/app/page.tsx`, and this entry.
+
+**Still open for Phase 2**: resume route with printable export, and the CSP headers deferred
+from Phase 1 — each its own branch. The Phase 2 security gate also requires the RLS read-path
+ritual against the real project, which still depends on the user provisioning Supabase.
