@@ -39,7 +39,14 @@ Manual, and the highest-value check in the project — **the RLS ritual**: using
 against the real Supabase URL with the public anon key, attempt `INSERT`, `PATCH`, and
 `DELETE` on every table, first with no auth and then with a valid session for a
 non-allow-listed account. Every write must fail *at the database*. If something can only be
-prevented by removing a button from the interface, it isn't secured.
+prevented by removing a button from the interface, it isn't secured. Runnable commands are in
+[`supabase/README.md`](https://github.com/mudgalprashant/home/blob/main/supabase/README.md).
+
+Authorization is enforced in two independent layers, so a mistake in either alone isn't
+exploitable: the anonymous role is never granted write privileges on any table at all, and
+policies additionally require the caller to be the allow-listed admin. The allow-list itself
+sits in a table with RLS on and zero policies — invisible and unmodifiable through the API,
+editable only from the SQL console.
 
 Security is a gate at each development phase rather than an audit at the end — see
 [Roadmap](Roadmap.md) and `/KB/security.md` §6.

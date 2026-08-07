@@ -258,17 +258,41 @@ create table skills (
 );
 ```
 
-**Row Level Security (RLS)**: enabled on every table.
-- `select`: public (`anon` role) — the public site reads with the anon key, no auth needed
-  to *view* content, matching "it's a public portfolio."
-- `insert`/`update`/`delete`: restricted to the authenticated Supabase user whose email
-  matches the allow-listed admin email (checked in the policy itself, not just in app code —
-  so even a bug in the admin UI can't bypass it). This is the actual security boundary, not
-  the unlisted URL.
+**Row Level Security (RLS)**: enabled on every table. As implemented in
+`supabase/migrations/0001_content_schema.sql`, this is enforced in two independent layers so
+a mistake in either one alone is not exploitable:
 
-`lib/schemas.ts` defines Zod schemas matching these tables, used both to validate admin form
-submissions before they hit the database and to type the data the public site reads — one
-source of truth for shape, same principle as the original typed-content-file design.
+1. **Privileges** — `anon` is granted `select` only, and is never granted
+   `insert`/`update`/`delete` on any table. Even a policy that wrongly evaluated true could
+   not let an anonymous request write, because the privilege itself is absent.
+2. **Policies** — writes additionally require `public.is_admin()`. Policies are written per
+   table and per operation rather than collapsed into `for all`, so the configuration is
+   reviewable at a glance (security.md §4.1 rule 2).
+
+`select` is public on all content tables — the site is a public portfolio, so no auth is
+needed to *view*. This is the actual security boundary, not the unlisted admin URL.
+
+Two implementation details worth knowing, added during the build and not in the original
+sketch above:
+
+- **`admin_allowlist` table** holds the authorized admin email(s), rather than hardcoding an
+  address into every policy — changing the admin is a one-row update instead of a schema
+  migration. The table has RLS enabled with **zero policies**, which makes it invisible and
+  unmodifiable through the API; it is managed only via the SQL editor. Anyone able to insert
+  their own address here would own the entire site, so it is deliberately not reachable from
+  the internet at all.
+- **`public.is_admin()`** is the single authorization predicate every write policy calls. It
+  is `security definer` (so it can read the allow-list that clients cannot) with
+  `search_path` pinned to `''` and all objects schema-qualified — an unpinned search path is
+  the standard way `security definer` functions get hijacked. For an anonymous request
+  `auth.jwt()` is null, so the lookup fails closed.
+
+`src/lib/schemas.ts` defines Zod schemas matching these tables, used to validate admin form
+submissions before they hit the database. Its validation rules deliberately mirror the SQL
+`CHECK` constraints (URL protocol, slug format, date ordering); the database constraint is
+the one that cannot be bypassed, and the Zod copy turns a would-be PostgREST 400 into a
+readable field-level error. Small `to*Insert` helper functions exist purely so a schema that
+drifts out of shape with its table fails to compile.
 
 ## 6. Social preview system (OG images, meta tags, structured data)
 
