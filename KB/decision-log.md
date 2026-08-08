@@ -1201,3 +1201,63 @@ still returns 200, is cache-HIT, and contains **zero** occurrences of the string
 
 **Not verified**: the actual sign-in round trip. It needs a real Supabase Auth user and a
 configured redirect URL, both of which are owner actions listed in the PR.
+
+---
+
+## 2026-08-09 — First admin write path: profile editing (`feat/admin-profile-editing`)
+
+**Context**: PR #21 merged and the owner confirmed sign-in and sign-out work end to end, so the
+auth shell is proven against real Supabase Auth. This branch adds the first write path.
+
+**Scope**: profile only, plus the shared plumbing (field components, form-state shape, action
+structure). Deliberately not all four content types at once — the pattern is the part worth
+reviewing carefully, and building it once against a proven gate beats building four variations
+of something unvalidated. Experience, projects, and skills follow using the same shape.
+
+**A latent bug the first write exposed.** `.update()` and `.insert()` failed to typecheck with
+*"Argument of type {...} is not assignable to parameter of type `never`"*. The hand-written
+`Database` type in `lib/supabase/types.ts` was incomplete: supabase-js only resolves the
+Insert/Update generics when every table also declares `Relationships` and the schema declares
+`CompositeTypes`. Both were missing.
+
+What makes this worth recording is *when* it surfaced. `select` is permissive enough to work
+without them, so every read written since the data layer landed typechecked fine and the gap
+stayed invisible for four branches. It could only appear the moment something wrote. The types
+now carry a comment explaining why those apparently-decorative fields must stay.
+
+**Decisions**:
+1. **`requireAdmin()` runs before the payload is even read, and outside any try/catch.** It
+   signals rejection by throwing a redirect; catching that would turn "sent to login" into
+   "silently continued" — the same class of bug as the swallowed dynamic-rendering bailout on
+   2026-08-08. That lesson is now applied rather than merely documented.
+2. **The action reads an explicit list of fields** rather than iterating `formData.keys()`. A
+   Server Action accepts whatever payload it is sent, not only what the form rendered, so an
+   unexpected extra key is ignored instead of forwarded to the database.
+3. **The row id is read server-side, never accepted from a hidden input.** A client-supplied id
+   is client-controlled, and trusting one is how IDOR bugs start — worth doing correctly even on
+   a single-row table where today's blast radius is nil, because the habit is what carries over
+   to the list types.
+4. **RLS rejection (`42501`) is surfaced as its own message**, not folded into a generic error.
+   The database refusing a write is a correct outcome worth naming, and it is what an
+   authenticated-but-not-allow-listed account will hit.
+5. **`revalidatePath('/')` and `revalidatePath('/resume')` on success**, so a save is live in
+   seconds rather than waiting out the 1h ISR window. Both routes render profile data.
+6. **Admin reads live in `lib/admin/content.ts`, separate from `lib/content.ts`.** The public
+   module narrows every select and omits `contact_email` entirely; the admin needs the whole
+   row to edit it. Keeping them apart means widening the admin query can never accidentally
+   widen what the public site fetches.
+7. **Client validation is convenience only** — the action re-runs the same Zod schema, because a
+   direct POST never touches the form.
+
+**Verification**: lint, typecheck, build pass. Against a running server: `/admin/profile`
+redirects to login while logged out, an **unauthenticated POST to the action endpoint returns
+307 rather than executing**, and the public site still returns 200, is cache-HIT, and contains
+zero occurrences of "admin".
+
+**Not verified**: a real save round trip. That needs a live session; the owner can confirm by
+editing the headline and watching the home page change within seconds.
+
+**Phase 3 security gate — now testable.** Step 6 of the RLS ritual (a valid session for a
+*non*-allow-listed account) was impossible before Auth existed. It is the check that catches
+authentication being confused with authorization, and this branch is the first code where the
+distinction has teeth. Suggested to the owner as a concrete test.
