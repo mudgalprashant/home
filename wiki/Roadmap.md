@@ -25,9 +25,9 @@ managed through a private admin panel instead of hardcoded into the site.
 | Phase | Focus | Status |
 |---|---|---|
 | 0 | Planning & system design | Done |
-| 1 | Scaffold, deploy skeleton, data layer | Done (code); Supabase provisioning outstanding |
-| 2 | Public site against seeded content | Code complete; security gate open |
-| 3 | Admin panel (auth + CRUD) | Not started |
+| 1 | Scaffold, deploy skeleton, data layer | Done |
+| 2 | Public site against seeded content | Done — RLS verified against the live database |
+| 3 | Admin panel (auth + CRUD) | In progress — auth shell built |
 | 4 | Interactivity & polish | Not started |
 | 5 | Social preview & SEO layer | Not started |
 | 6 | Live content entry (via the admin UI) | Not started |
@@ -43,9 +43,11 @@ The public site is built and rendering real content: hero, about, experience, pr
 skills, and contact all read from the database, plus a printable `/resume` route. Security
 headers and a Report-Only CSP are in place.
 
-Two things stand between here and a closed Phase 2, and both need the owner rather than more
-code: the Supabase project has to be provisioned so the RLS verification can actually be run,
-and the CSP needs a browser console check before it moves from Report-Only to enforcing.
+Phase 2 is closed. The Supabase project is live, and the RLS verification has been run against
+it: public reads succeed, and every anonymous write is refused. That check found a real gap on
+its first run — a privilege layer the migration claimed but had not created — which is now
+fixed and documented.
 
-Phase 3 — the private admin panel — is the next build. See [Architecture](Architecture.md)
+Phase 3 — the private admin panel — is under way. The authentication shell is built; content
+editing forms are next. See [Architecture](Architecture.md)
 for how the pieces fit, and [Security](Security.md) for the gate each phase has to clear.
