@@ -20,10 +20,10 @@ export default async function AdminDashboard() {
   ]);
 
   const rows = [
-    { label: "Profile", count: profile ? 1 : 0 },
-    { label: "Experience", count: experience.length },
-    { label: "Projects", count: projects.length },
-    { label: "Skills", count: skills.length },
+    { label: "Profile", count: profile ? 1 : 0, href: "/admin/profile" },
+    { label: "Experience", count: experience.length, href: null },
+    { label: "Projects", count: projects.length, href: null },
+    { label: "Skills", count: skills.length, href: null },
   ];
 
   return (
@@ -33,14 +33,32 @@ export default async function AdminDashboard() {
           Content
         </h2>
         <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {rows.map((row) => (
-            <div key={row.label} className="rounded-md border border-border p-3">
-              <dt className="text-xs text-muted">{row.label}</dt>
-              <dd className="mt-0.5 text-2xl font-semibold text-foreground">
-                {row.count}
-              </dd>
-            </div>
-          ))}
+          {rows.map((row) => {
+            const body = (
+              <>
+                <dt className="text-xs text-muted">{row.label}</dt>
+                <dd className="mt-0.5 text-2xl font-semibold text-foreground">
+                  {row.count}
+                </dd>
+              </>
+            );
+
+            // Editable types link through; the rest render flat until their
+            // forms exist, so the dashboard never offers a dead end.
+            return row.href ? (
+              <Link
+                key={row.label}
+                href={row.href}
+                className="rounded-md border border-border p-3 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {body}
+              </Link>
+            ) : (
+              <div key={row.label} className="rounded-md border border-border p-3 opacity-70">
+                {body}
+              </div>
+            );
+          })}
         </dl>
       </section>
 
@@ -49,8 +67,9 @@ export default async function AdminDashboard() {
           Next
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          Editing forms for each content type are the next piece of work. Until
-          then, changes go through the Supabase SQL editor.
+          Profile is editable above. Experience, projects, and skills forms are
+          the next piece of work; until then those change through the Supabase
+          SQL editor.
         </p>
         <Link
           href="/"

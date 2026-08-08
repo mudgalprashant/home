@@ -7,6 +7,13 @@
  *   npx supabase gen types typescript --project-id <id> > src/lib/supabase/types.ts
  *
  * Until then, a schema change means editing both the migration and this file.
+ *
+ * `Relationships: []` on every table and `CompositeTypes` on the schema are not
+ * decorative. supabase-js resolves the Insert/Update generics only when the full
+ * shape is present; without them every write infers as `never` and
+ * `.update()`/`.insert()` fail to typecheck. Reads still work, so the omission
+ * stays invisible until the first write path is built — which is exactly when it
+ * surfaced here.
  * The Zod schemas in src/lib/schemas.ts are validated against these types at
  * compile time, so a mismatch between the two surfaces as a type error rather
  * than a runtime surprise.
@@ -37,6 +44,7 @@ export type Database = {
           updated_at?: Timestamp;
         };
         Update: Partial<Database["public"]["Tables"]["profile"]["Insert"]>;
+        Relationships: [];
       };
 
       experience: {
@@ -61,6 +69,7 @@ export type Database = {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["experience"]["Insert"]>;
+        Relationships: [];
       };
 
       projects: {
@@ -91,6 +100,7 @@ export type Database = {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["projects"]["Insert"]>;
+        Relationships: [];
       };
 
       skills: {
@@ -111,6 +121,7 @@ export type Database = {
           sort_order?: number;
         };
         Update: Partial<Database["public"]["Tables"]["skills"]["Insert"]>;
+        Relationships: [];
       };
     };
 
@@ -124,6 +135,8 @@ export type Database = {
     };
 
     Enums: Record<string, never>;
+
+    CompositeTypes: Record<string, never>;
   };
 };
 
