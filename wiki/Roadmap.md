@@ -25,8 +25,8 @@ managed through a private admin panel instead of hardcoded into the site.
 | Phase | Focus | Status |
 |---|---|---|
 | 0 | Planning & system design | Done |
-| 1 | Scaffold, deploy skeleton, data layer (Supabase provisioning) | In progress |
-| 2 | Public site against seeded content | Not started |
+| 1 | Scaffold, deploy skeleton, data layer | Done (code); Supabase provisioning outstanding |
+| 2 | Public site against seeded content | Code complete; security gate open |
 | 3 | Admin panel (auth + CRUD) | Not started |
 | 4 | Interactivity & polish | Not started |
 | 5 | Social preview & SEO layer | Not started |
@@ -39,7 +39,13 @@ automated).
 
 ## What's next
 
-Phase 1 is underway. The Next.js scaffold, CI pipeline, and security baseline have been
-built; Supabase provisioning (schema, RLS policies, auth) and the theme toggle are the
-remaining pieces before Phase 2 begins. See [Architecture](Architecture.md) for how these
-fit together, and [Security](Security.md) for the gate each phase has to clear.
+The public site is built and rendering real content: hero, about, experience, projects,
+skills, and contact all read from the database, plus a printable `/resume` route. Security
+headers and a Report-Only CSP are in place.
+
+Two things stand between here and a closed Phase 2, and both need the owner rather than more
+code: the Supabase project has to be provisioned so the RLS verification can actually be run,
+and the CSP needs a browser console check before it moves from Report-Only to enforcing.
+
+Phase 3 — the private admin panel — is the next build. See [Architecture](Architecture.md)
+for how the pieces fit, and [Security](Security.md) for the gate each phase has to clear.

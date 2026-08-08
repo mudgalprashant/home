@@ -142,7 +142,7 @@ with nothing to show.
 - [x] Fold in dynamic content + admin panel requirement (2026-08-07 revision)
 - [x] Document security model: threat model, attack entry points, dev rules, vuln checks
       ([security.md](./security.md), 2026-08-08)
-- [ ] User reviews and signs off on plan + system design
+- [x] User reviewed and approved (implementation began 2026-08-08)
 
 Each phase below carries a **security gate** — the corresponding row in
 [security.md](./security.md) §6 must pass before the phase counts as done. Security is
@@ -161,13 +161,16 @@ and cheap to prevent but costly to retrofit.
 - Goal: a live, blank-but-branded URL exists, backed by a real (empty/seeded) database —
   deployment and data-layer risk both retired on day one
 
-### Phase 2 — Public site against seeded content
-- Seed script populates the database with placeholder content matching the real schema
+### Phase 2 — Public site against seeded content — **code complete**
+Everything below is built and verified locally. The phase is **not closed**: its security gate
+needs the RLS ritual run against a real Supabase project, which is still outstanding.
+- Seed script populates the database — now with the owner's real content, not placeholders
 - All public sections built and fetching from the database (via typed server-side queries),
   fully responsive
 - Resume route + printable/PDF export working
-- **Security gate**: RLS read-path verification passes (security.md §5.2); `curl` of every
-  public page confirms no private fields leak into the RSC payload; CSP headers set
+- **Security gate**: `curl` leak check **done** (contact email and phone confirmed absent from
+  rendered HTML); CSP **done** (Report-Only, awaiting a browser console check to enforce);
+  RLS read-path verification **still outstanding** — blocked on Supabase being provisioned
 - Goal: the whole public site exists and reads correctly, sourced from real infrastructure,
   just with placeholder copy
 
