@@ -60,6 +60,47 @@ body {
 }
 
 /*
+ * Scroll-reveal.
+ *
+ * Implemented as a CSS scroll-driven animation rather than with an animation
+ * library or an IntersectionObserver that toggles classes. Three reasons:
+ *
+ *   1. No JavaScript, so nothing is added to the bundle for decoration, and the
+ *      performance budget (KB/system-design.md §9) stays intact.
+ *   2. Content is never hidden behind JS. A class-toggling approach starts
+ *      elements at opacity 0 and reveals them on an observer callback — if that
+ *      script fails to run, the page is blank. Here the hidden state exists only
+ *      inside @supports, so any browser that cannot animate simply shows
+ *      everything immediately.
+ *   3. It runs off the compositor rather than the main thread.
+ *
+ * Guarded by prefers-reduced-motion: someone who has asked their OS for less
+ * motion gets none, not a faster version of it.
+ */
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      /* Finish well before the element reaches the middle of the screen —
+         a reveal still animating while you are reading it is a distraction. */
+      animation-range: entry 5% cover 25%;
+    }
+  }
+}
+
+/*
  * Print.
  *
  * Browsers drop background colours when printing, so a dark-theme page would

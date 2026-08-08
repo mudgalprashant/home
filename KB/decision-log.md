@@ -1022,3 +1022,55 @@ where the security work concentrates, which is why item 1 above should land firs
 policies should be known-good before code depends on them.
 
 Read `KB/security.md` §4 before writing any of it, and `KB/plan.md` Phase 3 for the gate.
+
+---
+
+## 2026-08-09 — Phase 4 begins: scroll reveal + active-section nav (`feat/scroll-interactions`)
+
+**Context**: Session resumed. Repo state checked first: `main` green, PR #18 still open (branched
+from it, so **merge #18 before this**). Owner has enabled **secret scanning + push protection**.
+Still outstanding on their side: Supabase provisioning, Vercel connection (0 deployments),
+branch protection on `main` (still absent), and CodeQL (not configured).
+
+**Phase 3 is genuinely blocked, so Phase 4 was started instead.** The admin panel needs Supabase
+Auth to exist before login can be built *or tested* — writing it against a project that does not
+exist would mean shipping an unverifiable auth flow, which is the one thing this project should
+not do. Phase 4 is fully buildable and testable locally, so it moves while the owner unblocks
+Phase 3.
+
+**Decision: no animation library. Reveal animations are pure CSS.** system-design.md §2 planned
+Framer Motion; that row has been rewritten rather than left stale. Reasons:
+1. No JavaScript for decoration, so the performance budget (§9) is untouched.
+2. **Content is never hidden behind a script.** The usual pattern — start at `opacity: 0`, reveal
+   on an IntersectionObserver callback — means a script failure leaves a blank page. Here the
+   hidden starting state lives *inside* `@supports (animation-timeline: view())`, so a browser
+   that cannot animate simply shows everything. Verified: the compiled CSS contains **no
+   unguarded `.reveal { opacity: 0 }`**.
+3. Runs on the compositor rather than the main thread.
+
+Double-guarded by `@media (prefers-reduced-motion: no-preference)` and the `@supports` block —
+confirmed in the compiled output, not just the source.
+
+**Active-section nav** (`components/layout/section-nav.tsx`) is progressive enhancement: the
+links are plain anchors that work with no JavaScript, so an observer failure costs the highlight
+and never navigation. Three details worth keeping:
+- `rootMargin: "-20% 0px -65% 0px"` — without a band, a section counts as visible the moment one
+  pixel appears at the bottom of the viewport, and the highlight runs ahead of what is being read.
+- Visible ids are held in a **ref**, because the observer callback reports only entries that
+  *changed*; the full picture has to persist across callbacks.
+- The active link carries `aria-current="location"` — assistive tech cannot see a colour change.
+
+**Verification**: lint, typecheck, build pass. Served against the mock and confirmed all five
+nav anchors are present in the SSR HTML (so navigation works with JS disabled), `.reveal` is
+applied to sections, `@keyframes reveal-in` and both guards are in the compiled CSS, and no
+unguarded hidden state exists.
+
+*(Two checks initially reported failures that turned out to be my own regexes not matching
+minified CSS. Noted because "the check failed" and "the code is wrong" are easy to conflate —
+the compiled output was inspected directly before concluding anything.)*
+
+**Not verified**: the animation has never been watched in a browser. Its correctness rests on
+the compiled CSS being what was intended plus the degradation guarantee above. Worth an eyeball
+on the Vercel preview once that exists.
+
+**Next in Phase 4**: command palette (Cmd/Ctrl+K), then the accessibility and performance passes.
