@@ -15,7 +15,13 @@ type SectionProps = {
  */
 export function Section({ id, title, children }: SectionProps) {
   return (
-    <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-14 py-14">
+    // `reveal` is the scroll-driven fade defined in globals.css. It is purely
+    // decorative and degrades to no animation at all, so it never gates content.
+    <section
+      id={id}
+      aria-labelledby={`${id}-heading`}
+      className="reveal scroll-mt-14 py-14"
+    >
       <h2
         id={`${id}-heading`}
         className="font-mono text-xs uppercase tracking-[0.2em] text-muted"

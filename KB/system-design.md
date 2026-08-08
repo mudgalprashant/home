@@ -81,7 +81,7 @@ intent — everything else is read-only by construction, before RLS even gets in
 | Language | TypeScript | Typed content model + Zod schemas catch bad admin input at the boundary, not in prod | N/A |
 | Database + Auth + Storage | **Supabase** (free tier) | One provider for Postgres (content tables), Auth (admin login), and Storage (optional image uploads) — avoids integrating three separate free services for what's still a small site | 500MB DB, 50k monthly active users (Auth), 1GB storage — all wildly more than a single-owner portfolio needs |
 | Styling | Tailwind CSS | Fast to build with, easy to keep visually consistent, small final CSS via purge | N/A |
-| Animation | Framer Motion (or `motion` package) | Declarative scroll/hover animations, respects `prefers-reduced-motion` easily | N/A |
+| Animation | **None — CSS scroll-driven animations** (`animation-timeline: view()`) | Originally planned as Framer Motion. Reveal animations turned out to need no library at all: CSS runs them off the compositor, adds nothing to the bundle, and degrades to no animation rather than to hidden content. Revisit only if something genuinely needs orchestration | N/A |
 | Hosting | Vercel (Hobby/free plan) | Zero-config Next.js deploys including serverless/edge functions on the free tier, free HTTPS + custom domain, per-PR preview URLs | 100GB bandwidth/mo, generous serverless function invocation limits — far beyond a portfolio's needs |
 | CI | GitHub Actions | Lint + typecheck + build on every PR before Vercel even deploys it | 2,000 min/mo free (public repo is unlimited) |
 | Contact form | Web3Forms or Formspree (free tier) | No custom backend needed for this one form; POST to their free endpoint, delivered to a real inbox | Both comfortably cover a portfolio site's volume |
@@ -450,14 +450,25 @@ application code did or didn't verify.
 
 - **Single-page scroll** for the home route: sections are `<section id="...">` with
   `scroll-margin-top` for anchor offset under the sticky nav.
-- **Active-section nav** via `IntersectionObserver` (no scroll-event listener/throttling
-  needed) — updates which nav item is highlighted as the user scrolls.
+- **Active-section nav** via `IntersectionObserver` in `components/layout/section-nav.tsx`
+  (no scroll-event listener or throttling to tune). Progressive enhancement: the links are
+  plain anchors that work with no JavaScript, so a failure costs the highlight, never
+  navigation. The observer uses a `rootMargin` band across the upper-middle of the viewport,
+  otherwise a section counts as visible the instant one pixel appears at the bottom of the
+  screen and the highlight runs ahead of what is being read. Visible sections are tracked in a
+  ref because the observer callback only reports entries that *changed*. The active link
+  carries `aria-current="location"`, since assistive tech cannot see a colour change.
 - **Command palette** (`Cmd/Ctrl+K`): a lightweight library (e.g. `cmdk`, MIT-licensed) with
   actions defined declaratively (jump to section, open GitHub, open LinkedIn, download resume,
   toggle theme). Deliberately does **not** list or hint at the admin route.
-- **Scroll reveal animations**: Framer Motion's `whileInView` with `once: true`; all respect
-  `prefers-reduced-motion` via a shared hook that disables animation entirely for users who've
-  opted out at the OS level.
+- **Scroll reveal animations**: a CSS scroll-driven animation (`animation-timeline: view()`)
+  on a `.reveal` class, defined in `globals.css`. No JavaScript and no library.
+  Double-guarded — wrapped in `@media (prefers-reduced-motion: no-preference)` so an OS-level
+  request for less motion gets none, and in `@supports (animation-timeline: view())` so the
+  hidden starting state exists only where it can actually be animated away. That second guard
+  is the important one: a class-toggling approach starts elements at `opacity: 0` and reveals
+  them from a script callback, so a script failure leaves a blank page. Here, any browser that
+  cannot run the animation simply shows everything.
 - **Theme**: CSS variables + a `ThemeProvider` (e.g. `next-themes`), defaults to system
   preference, persisted via `localStorage`, no flash-of-wrong-theme.
 
