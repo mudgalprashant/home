@@ -161,16 +161,16 @@ and cheap to prevent but costly to retrofit.
 - Goal: a live, blank-but-branded URL exists, backed by a real (empty/seeded) database —
   deployment and data-layer risk both retired on day one
 
-### Phase 2 — Public site against seeded content — **code complete**
-Everything below is built and verified locally. The phase is **not closed**: its security gate
-needs the RLS ritual run against a real Supabase project, which is still outstanding.
+### Phase 2 — Public site against seeded content — **DONE (2026-08-09)**
+Security gate closed: the RLS ritual was run against the real Supabase project and passed
+after migration 0003 (see decision-log.md).
 - Seed script populates the database — now with the owner's real content, not placeholders
 - All public sections built and fetching from the database (via typed server-side queries),
   fully responsive
 - Resume route + printable/PDF export working
-- **Security gate**: `curl` leak check **done** (contact email and phone confirmed absent from
-  rendered HTML); CSP **done** (Report-Only, awaiting a browser console check to enforce);
-  RLS read-path verification **still outstanding** — blocked on Supabase being provisioned
+- **Security gate — PASSED**: `curl` leak check done (contact email and phone absent from
+  rendered HTML); CSP done (Report-Only, pending a browser console check to enforce); RLS
+  ritual run against the live project — reads succeed, all writes refused with 401
 - Goal: the whole public site exists and reads correctly, sourced from real infrastructure,
   just with placeholder copy
 

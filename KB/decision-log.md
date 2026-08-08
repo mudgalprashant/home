@@ -1131,3 +1131,73 @@ reading the migration would have believed the comment.
 **Still outstanding at time of writing**: the ritual's INSERT result was not reported. INSERT
 should still be refused with 403 (`new row violates row-level security policy`) since no
 policy permits `anon` to insert, but that is reasoning, not measurement, and needs confirming.
+
+---
+
+## 2026-08-09 — RLS ritual PASSED; Phase 2 closed; admin auth shell built (`feat/admin-auth`)
+
+**Milestone: the RLS ritual passes.** After migration 0003 was applied, anonymous `INSERT`,
+`PATCH`, and `DELETE` all return **401**, and public reads still succeed. The privilege layer
+is real this time, and it was measured rather than asserted.
+
+That closes the **Phase 2 security gate** and retires what the 2026-08-08 handoff called "the
+single most important open risk" — SQL that had never executed anywhere. It is worth recording
+that the ritual justified itself on its very first run by finding a genuine gap (see the
+previous entry). Had the project shipped on the strength of the migration's comments, the site
+would have been running on one protection layer while its documentation claimed two.
+
+plan.md Phase 2 and wiki/Roadmap.md updated to done. Owner has since enabled **CodeQL**;
+branch protection and Vercel remain outstanding.
+
+**Phase 3 begins: the authentication shell.** Built before any CRUD, deliberately — an editing
+UI behind an unverified gate is the wrong order of work.
+
+**Three independent checks now guard the admin area** (KB/security.md §7):
+1. `middleware.ts` — is there a *verified* session?
+2. `(protected)/layout.tsx` → `requireAdmin()` — is that session the allow-listed admin?
+3. Postgres RLS — enforced on every write regardless of what the app did.
+
+**Decisions**:
+1. **`getUser()`, never `getSession()`.** `getSession()` decodes the cookie and returns it
+   without verification, so a forged or expired cookie passes. `getUser()` validates against
+   Supabase's auth server. Both the middleware helper and the guard use it, and both say why in
+   a comment — this is the kind of line that gets "simplified" by someone optimising a network
+   round-trip away.
+2. **Middleware matcher scoped to `/admin/:path*`.** Running it site-wide would put a
+   per-request hop in front of pages otherwise served from the edge cache. Verified after the
+   change: `/` and `/resume` remain `○ Static` with `x-nextjs-cache: HIT`.
+3. **Magic link, with `shouldCreateUser: false`.** No password to store, leak, or brute-force.
+   The flag is load-bearing: Supabase's default is to *create* an account for any address that
+   requests a link, which would let a stranger mint a valid session. They would still fail the
+   allow-list and RLS, but a self-service account factory on the login page is surface with no
+   upside.
+4. **The login form always responds identically**, whether or not the address has an account.
+   Differing replies would make it an oracle for which emails exist. Supabase rate-limits the
+   endpoint, so this is not a spam vector.
+5. **No `?next=` parameter anywhere in the auth flow.** The callback redirects to a hardcoded
+   `/admin`. A `next` parameter is the textbook open redirect, and with one admin and one
+   destination it would buy nothing (security.md §3.2).
+6. **Authorization asks the database, not an env var.** `requireAdmin()` calls
+   `public.is_admin()`, so the app check and the RLS policies consult the *same* allow-list
+   table and cannot drift apart. It fails closed on error — an unreachable database must not
+   read as "allowed".
+7. **Sign-out is a POST**, not a link. A GET that mutates session state can be fired by a
+   prefetcher or a remote image tag.
+
+**A bug found by checking the status code rather than the page.** The login page initially sat
+inside the guarded layout, so `requireAdmin()` redirected it to itself: an infinite 307 loop
+whose `location` header pointed at `/admin/login`. It was invisible in casual testing because
+Next still served a full page body alongside the redirect — grepping the HTML found "Sign in"
+and looked like success. Only `%{http_code}` revealed it. Fixed with a `(protected)` route
+group, which applies the guard to the dashboard but not to login, without changing any URL.
+The comment in the login page had *claimed* it sat outside the admin layout while the file
+placement said otherwise — a reminder that comments do not constrain behaviour.
+
+**Verification**: lint, typecheck, build pass. Against a running server: `/admin`,
+`/admin/projects`, and arbitrary deep admin paths all 307 to login while logged out;
+`/admin/login` returns 200 and renders the form; `/auth/callback` without a code bounces to
+login; `noindex, nofollow, nocache` is present on admin pages including login; the public site
+still returns 200, is cache-HIT, and contains **zero** occurrences of the string "admin".
+
+**Not verified**: the actual sign-in round trip. It needs a real Supabase Auth user and a
+configured redirect URL, both of which are owner actions listed in the PR.
