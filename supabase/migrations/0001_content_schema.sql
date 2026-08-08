@@ -195,6 +195,11 @@ create or replace trigger skills_touch_updated_at
 -- Two deliberate layers, so a mistake in either one alone is not exploitable:
 --
 --   1. GRANTs      -- anon is never granted insert/update/delete on any table.
+--                     !! THIS CLAIM WAS FALSE AS WRITTEN. This migration only ever
+--                     GRANTs; it never REVOKEs, and Supabase's default privileges
+--                     already gave anon full access. Corrected by migration 0003.
+--                     Comment amended after the fact; the SQL below is untouched
+--                     so it still matches what was applied.
 --                     Even a policy that wrongly evaluated true could not let an
 --                     anonymous request write, because the privilege is absent.
 --   2. POLICIES    -- writes additionally require public.is_admin().

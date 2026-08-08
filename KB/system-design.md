@@ -262,9 +262,11 @@ create table skills (
 `supabase/migrations/0001_content_schema.sql`, this is enforced in two independent layers so
 a mistake in either one alone is not exploitable:
 
-1. **Privileges** — `anon` is granted `select` only, and is never granted
-   `insert`/`update`/`delete` on any table. Even a policy that wrongly evaluated true could
-   not let an anonymous request write, because the privilege itself is absent.
+1. **Privileges** — `anon` holds `select` and nothing else, so even a policy that wrongly
+   evaluated true could not let an anonymous request write. Note this requires an explicit
+   `REVOKE`: Supabase grants `anon` full privileges on new tables by default, so granting
+   `select` does not remove the rest. Migration 0001 missed that and asserted a layer it had
+   not built; migration 0003 established it for real after the RLS ritual exposed the gap.
 2. **Policies** — writes additionally require `public.is_admin()`. Policies are written per
    table and per operation rather than collapsed into `for all`, so the configuration is
    reviewable at a glance (security.md §4.1 rule 2).

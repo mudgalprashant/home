@@ -1074,3 +1074,60 @@ the compiled CSS being what was intended plus the degradation guarantee above. W
 on the Vercel preview once that exists.
 
 **Next in Phase 4**: command palette (Cmd/Ctrl+K), then the accessibility and performance passes.
+
+---
+
+## 2026-08-09 — RLS ritual found a real gap: `anon` held write privileges (`fix/revoke-anon-write-grants`)
+
+**Context**: Owner provisioned Supabase and applied migrations 0001 and 0002 (both logged
+SQLSTATE `00000`). Schema verification passed completely — 1 profile / 4 experience /
+4 projects / 6 skills / 1 allow-list row, RLS enabled on all five tables, 16 policies across
+the four content tables, `admin_allowlist` correctly carrying RLS with zero policies, and
+`is_admin()` returning `false` with no error. **That was the first time this SQL had been
+verified anywhere.**
+
+Then the RLS ritual returned **204** for an anonymous PATCH and DELETE, where 401/403 was
+expected.
+
+**The diagnosis, and it is my bug.** Migration 0001's header claimed two independent layers:
+
+> Layer 1, privileges — "anon is never granted insert/update/delete on any table ... even a
+> policy that wrongly evaluated true could not let an anonymous request write, because the
+> privilege is absent."
+
+**Layer 1 never existed.** 0001 only ever ran `GRANT`; it never ran `REVOKE`. Supabase
+provisions every project with
+`alter default privileges in schema public grant all on tables to anon, authenticated,
+service_role`, so `anon` already held INSERT/UPDATE/DELETE the moment each table was created.
+Adding `grant select ... to anon` on top removed nothing.
+
+**What 204 means, precisely**: the request was *permitted* and matched no rows. Postgres checks
+table privileges before row matching, so an absent privilege would have failed outright —
+204 proves the privilege is present. The data was never at risk, because Layer 2 (RLS) filtered
+every row, but the site had been running on **one layer, not two**, while the docs asserted two.
+
+This is the clearest possible argument for the project's own rule that security must be
+verified rather than asserted. The design was right; the implementation silently was not; and
+nothing short of a real request against a real database could tell the two apart. A reviewer
+reading the migration would have believed the comment.
+
+**Fixes**:
+- **Migration 0003** revokes `insert, update, delete` from `anon` on the four content tables,
+  revokes all privileges on `admin_allowlist` from both `anon` and `authenticated`, and sets
+  `alter default privileges ... revoke insert, update, delete on tables from anon` so the next
+  table cannot silently reintroduce the same gap. Idempotent.
+- **security.md gains a rule 0** in §4.1 — revoke anon write privileges in every
+  table-creating migration — numbered zero because it precedes even "enable RLS", and because
+  it was learned the expensive way.
+- **security.md §5.2 now explains the status codes**, which mattered more than the commands:
+  401/403 is a pass, 204 on PATCH/DELETE means permitted-but-matched-nothing (RLS holding
+  alone), and any 2xx returning a row is a live vulnerability. Adds the
+  `Prefer: return=representation` trick for telling "refused" from "permitted but empty".
+- **system-design.md §5** Layer 1 description corrected to say the REVOKE is required.
+- **Migration 0001 annotated with a comment** marking the false claim and pointing at 0003.
+  SQL untouched and verified byte-identical to what was applied — only the comment changed,
+  because a reviewer trusting that comment is more dangerous than the original bug.
+
+**Still outstanding at time of writing**: the ritual's INSERT result was not reported. INSERT
+should still be refused with 403 (`new row violates row-level security policy`) since no
+policy permits `anon` to insert, but that is reasoning, not measurement, and needs confirming.

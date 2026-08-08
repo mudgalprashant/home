@@ -174,6 +174,13 @@ Follow these while writing code. They are the operational form of §1.
 
 ### 4.1 Database
 
+0. **REVOKE write privileges from `anon` in every migration that creates a table.**
+   Supabase provisions each project with
+   `alter default privileges in schema public grant all on tables to anon, ...`,
+   so a new table arrives with `anon` already holding INSERT/UPDATE/DELETE. Granting
+   `select` on top does not remove them. This rule is numbered 0 because it was
+   learned the expensive way: migration 0001 asserted a privilege layer it never
+   actually created, and only the ritual in §5.2 revealed it (see migration 0003).
 1. Every `create table` migration enables RLS **in the same migration file**:
    `alter table <t> enable row level security;` — a table without a policy is either
    inaccessible or wide open, and both are bugs.
@@ -243,16 +250,29 @@ Using Postman or `curl`, against the real Supabase project URL with the anon key
 
 ```
 1. GET    /rest/v1/projects                → expect: 200, public content only
-2. POST   /rest/v1/projects  {...}         → expect: 401/403 or empty result — NOT 201
+2. POST   /rest/v1/projects  {...}         → expect: 401/403 — NOT 201
 3. PATCH  /rest/v1/projects?id=eq.<real>   → expect: rejected, row unchanged
 4. DELETE /rest/v1/projects?id=eq.<real>   → expect: rejected, row still present
 5. Repeat 2-4 for every table: profile, experience, projects, skills
 6. Repeat 2-4 with a valid session for a NON-allow-listed account → still rejected
 ```
 
-Any write that succeeds here is a live vulnerability regardless of how the UI behaves. Step 6
+**Reading the status codes matters as much as running the commands.**
+
+- `401` / `403` — the privilege is absent. This is the expected pass.
+- `204` on PATCH/DELETE — the request was *permitted* and simply matched no rows. Data is
+  safe, because RLS filtered everything, but it means the privilege layer is missing and RLS
+  is holding alone. Not a breach; not a pass either. This exact signal is what exposed the gap
+  fixed by migration 0003.
+- `200` / `201` / a 2xx that returns a row — a live vulnerability. Stop.
+
+Any write that genuinely succeeds here is exploitable regardless of how the UI behaves. Step 6
 is the one people skip, and it's the one that catches "authenticated" being confused with
 "authorized."
+
+To distinguish "refused" from "permitted but matched nothing", add
+`-H "Prefer: return=representation"`: a permitted write returns the affected rows, a filtered
+one returns `[]`.
 
 ### 5.3 Manual — pre-launch checklist
 
